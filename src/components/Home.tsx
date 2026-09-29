@@ -3,7 +3,7 @@ import { useApp } from '../ctx';
 import { rasterize } from '../lib/creature';
 import { fileToDataURL } from '../lib/extract';
 import { SAMPLES, SHOWCASE } from '../lib/samples';
-import BeadView from './BeadView';
+import BeadView, { ViewMode } from './BeadView';
 import { Box, Camera, Link, SoundOff, SoundOn } from './icons';
 import { BEADS } from '../lib/palette';
 
@@ -65,8 +65,9 @@ export default function Home() {
   const app = useApp();
   const shows = useMemo(() => SHOWCASE.map((g) => rasterize(g, app.pool)), [app.pool]);
   const [idx, setIdx] = useState(0);
+  const [heroMode, setHeroMode] = useState<ViewMode>('bead');
   useEffect(() => {
-    const t = setInterval(() => setIdx((i) => (i + 1) % shows.length), 3600);
+    const t = setInterval(() => setIdx((i) => (i + 1) % shows.length), 5600);
     return () => clearInterval(t);
   }, [shows.length]);
 
@@ -98,12 +99,12 @@ export default function Home() {
         ))}
         <div className="hero-board">
           <div key={idx} style={{ animation: 'pop .55s cubic-bezier(.3,1.5,.5,1) both' }}>
-            <BeadView ras={shows[idx]} size={216} board animate boardColor="rgba(255,255,255,0.55)" pad={0} />
+            <BeadView ras={shows[idx]} size={216} board animate melt={1300} boardColor="rgba(255,255,255,0.55)" pad={0} onMode={setHeroMode} />
           </div>
         </div>
         <div className="hero-cap">
-          <span>
-            来自「{labels[idx]}」· {shows[idx].total} 颗豆 · {shows[idx].colors.length} 色
+          <span key={heroMode} style={{ animation: 'fade .4s both' }}>
+            {heroMode === 'bead' ? `来自「${labels[idx]}」· ${shows[idx].total} 颗豆 · ${shows[idx].colors.length} 色` : '熨一下，就是这个样子'}
           </span>
           <div className="hero-dots">
             {shows.map((_, i) => (
@@ -199,7 +200,7 @@ function NestItem({ id }: { id: string }) {
     <button className={`nest-item ${c.madeAt ? '' : 'unmade'}`} onClick={() => app.go({ k: 'detail', id })}>
       {c.madeAt && <span className="born">已出生</span>}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <BeadView ras={ras} size={88} />
+        <BeadView ras={ras} size={88} style={c.madeAt ? 'full' : 'bead'} pad={c.madeAt ? 6 : 0} />
       </div>
       <div className="nm">{c.name}</div>
       <div className="st">{c.madeAt ? '在你手里' : `待拼 · ${ras.total} 颗`}</div>

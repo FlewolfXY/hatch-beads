@@ -17,7 +17,7 @@ import {
 } from '../lib/genes';
 import { nameFor } from '../lib/names';
 import { BEADS, derive, STANDARD } from '../lib/palette';
-import { beadSprite, drawEgg, drawRaster, EggRaster, EggShape, EggStyle, makeEgg, setupCanvas } from '../lib/render';
+import { beadSprite, drawEgg, drawRaster, EggRaster, EggShape, EggStyle, makeEgg, Melt, MELT_MS, reduceMotion, setupCanvas } from '../lib/render';
 import { hashNums, mulberry32, uid } from '../lib/rng';
 import { chime, crack, tick } from '../lib/sound';
 import { Creature } from '../lib/store';
@@ -262,6 +262,8 @@ function HatchCard({
   const auto = useRef(false);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
+  const [melted, setMelted] = useState(born);
+  const meltedRef = useRef(born);
 
   useEffect(() => {
     if (trigger > 0) auto.current = true;
@@ -276,6 +278,8 @@ function HatchCard({
     const pad = 6;
     const px = (S - pad * 2) / n;
     let phase: 'idle' | 'burst' | 'done' = born ? 'done' : 'idle';
+    const melt = new Melt();
+    const still = reduceMotion();
     let charge = 0;
     let last = performance.now();
     let burstAt = 0;
@@ -396,8 +400,24 @@ function HatchCard({
           blinkUntil = t + 150;
           nextBlink = t + 2500 + Math.random() * 3000;
         }
-        const hop = e < 480 ? -Math.sin((e / 480) * Math.PI) * px * 1.4 : 0;
-        drawRaster(ctx, ras, { px, x0: pad, y0: pad, t, blink: t < blinkUntil, offsetY: hop });
+        // 落定、蹦一下，停一拍，再熨成烫好的样子
+        const meltAt = born || still ? -Infinity : burstAt + 1100;
+        const k = (t - meltAt) / MELT_MS;
+        if (k < 0) {
+          const hop = e < 480 ? -Math.sin((e / 480) * Math.PI) * px * 1.4 : 0;
+          drawRaster(ctx, ras, { px, x0: pad, y0: pad, t, blink: t < blinkUntil, offsetY: hop });
+        } else if (k < 1) {
+          const ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+          melt.draw(ctx, ras, { px, x0: pad, y0: pad }, ease, t);
+        } else {
+          if (!meltedRef.current) {
+            meltedRef.current = true;
+            setMelted(true);
+            nextBlink = t + 400;
+          }
+          const hop = k < 1.5 ? -Math.sin(((k - 1) / 0.5) * Math.PI) * px * 0.8 : 0;
+          drawRaster(ctx, ras, { px, x0: pad, y0: pad, t, style: 'full', blink: t < blinkUntil, offsetY: hop });
+        }
         if (e < 900) {
           const a = 1 - e / 900;
           for (let s = 0; s < 6; s++) {
@@ -432,6 +452,7 @@ function HatchCard({
         onContextMenu={(e) => e.preventDefault()}
       >
         <canvas ref={ref} />
+        {melted && <span className="stage-tag">烫好的样子</span>}
       </div>
       <div className="info">
         <div className="flavor">

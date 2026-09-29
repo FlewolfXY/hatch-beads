@@ -230,8 +230,29 @@ function cellPath(c: CanvasRenderingContext2D, x: number, y: number, w: number, 
  * 全熔：豆子融成一整片平整的像素，外轮廓只在凸角处稍微圆润，看得到薄片的厚度。
  * 留孔（半熔）：每颗豆被压成圆角小方块，彼此贴住，中间留着小孔。
  */
+const fusedCache = new WeakMap<Raster, Map<string, HTMLCanvasElement>>();
+
 function drawFused(ctx: CanvasRenderingContext2D, ras: Raster, grid: Int16Array, o: DrawOpts) {
-  const { px, x0 = 0, y0 = 0, style } = o;
+  const { px, x0 = 0, y0 = 0, style = 'full' } = o;
+  const pad = px * 1.5;
+  const size = ras.n * px + pad * 2;
+  const key = `${px.toFixed(3)}|${style}|${grid === ras.blink ? 1 : 0}|${DPR()}`;
+  let byRas = fusedCache.get(ras);
+  if (!byRas) fusedCache.set(ras, (byRas = new Map()));
+  let off = byRas.get(key);
+  if (!off) {
+    off = renderFused(ras, grid, px, style);
+    byRas.set(key, off);
+  }
+  ctx.save();
+  ctx.shadowColor = 'rgba(80,50,30,0.25)';
+  ctx.shadowBlur = px * 1.2;
+  ctx.shadowOffsetY = px * 0.45;
+  ctx.drawImage(off, x0 - pad, y0 - pad + (o.offsetY ?? 0), size, size);
+  ctx.restore();
+}
+
+function renderFused(ras: Raster, grid: Int16Array, px: number, style: BeadStyle): HTMLCanvasElement {
   const n = ras.n;
   const dpr = DPR();
   const pad = px * 1.5;
@@ -341,13 +362,89 @@ function drawFused(ctx: CanvasRenderingContext2D, ras: Raster, grid: Int16Array,
   c.fillStyle = g;
   c.fillRect(0, 0, size, size);
   c.globalCompositeOperation = 'source-over';
+  return off;
+}
 
-  ctx.save();
-  ctx.shadowColor = 'rgba(80,50,30,0.25)';
-  ctx.shadowBlur = px * 1.2;
-  ctx.shadowOffsetY = px * 0.45;
-  ctx.drawImage(off, x0 - pad, y0 - pad, size, size);
-  ctx.restore();
+/* ---------------- 熨烫：从豆板上的豆子变成烫好的薄片 ---------------- */
+
+export const MELT_MS = 950;
+
+export const reduceMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const bboxCache = new WeakMap<Raster, [number, number]>();
+function colSpan(ras: Raster): [number, number] {
+  let hit = bboxCache.get(ras);
+  if (!hit) {
+    let a = ras.n,
+      b = -1;
+    for (let i = 0; i < ras.bead.length; i++)
+      if (ras.bead[i] >= 0) {
+        a = Math.min(a, i % ras.n);
+        b = Math.max(b, i % ras.n);
+      }
+    hit = [a, b];
+    bboxCache.set(ras, hit);
+  }
+  return hit;
+}
+
+export class Melt {
+  private puffs: { x: number; y: number; born: number; s: number }[] = [];
+
+  /** p: 0 = 全是豆子，1 = 全部烫好 */
+  draw(ctx: CanvasRenderingContext2D, ras: Raster, o: DrawOpts, p: number, t: number, steam = true) {
+    const { px, x0 = 0, y0 = 0 } = o;
+    const n = ras.n;
+    const W = n * px;
+    if (o.board) drawBoard(ctx, n, o);
+    const sy = y0 - px + p * (W + px * 2);
+    const base = { ...o, board: false, offsetY: 0 };
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x0 - px * 3, sy, W + px * 6, W + px * 6);
+    ctx.clip();
+    drawRaster(ctx, ras, { ...base, style: 'bead' });
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x0 - px * 3, y0 - px * 3, W + px * 6, sy - (y0 - px * 3));
+    ctx.clip();
+    drawRaster(ctx, ras, { ...base, style: 'full' });
+    ctx.restore();
+    if (p > 0 && p < 1) {
+      const [ca, cb] = colSpan(ras);
+      const band = px * 2.6;
+      const g = ctx.createLinearGradient(0, sy - band, 0, sy + px * 0.8);
+      g.addColorStop(0, 'rgba(255,200,140,0)');
+      g.addColorStop(0.75, 'rgba(255,216,168,0.55)');
+      g.addColorStop(1, 'rgba(255,246,232,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x0 + (ca - 0.6) * px, sy - band, (cb - ca + 2.2) * px, band + px * 0.8);
+      if (steam && Math.random() < 0.7) {
+        const row = Math.floor((sy - y0) / px);
+        if (row >= 0 && row < n) {
+          const cells: number[] = [];
+          for (let x = 0; x < n; x++) if (ras.bead[row * n + x] >= 0) cells.push(x);
+          if (cells.length) {
+            const x = cells[Math.floor(Math.random() * cells.length)];
+            this.puffs.push({ x: x0 + (x + 0.5) * px, y: sy, born: t, s: Math.random() * 6 });
+          }
+        }
+      }
+    }
+    this.puffs = this.puffs.filter((f) => t - f.born < 900);
+    for (const f of this.puffs) {
+      const a = (t - f.born) / 900;
+      const x = f.x + Math.sin(a * 4 + f.s) * px * 0.5,
+        y = f.y - a * px * 3.4,
+        r = px * (0.45 + a * 1.1);
+      const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, `rgba(255,255,255,${0.32 * (1 - a)})`);
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gr;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+  }
 }
 
 /* ---------------- 蛋 ---------------- */

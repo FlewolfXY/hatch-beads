@@ -6,7 +6,7 @@ import { Colors, DIR_LABEL, GENE_KEYS, GENE_LABEL, GeneKey, geneText, palettesOf
 import { BEADS } from '../lib/palette';
 import { hexToRgb, rgbToHex, RGB } from '../lib/color';
 import { Creature } from '../lib/store';
-import BeadView from './BeadView';
+import BeadView, { ViewMode } from './BeadView';
 import { TopBar } from './Home';
 import { Card, Copy, Grid, Heart, Link, Pin, Shuffle } from './icons';
 
@@ -45,6 +45,7 @@ export default function Detail({ id }: { id: string }) {
   const app = useApp();
   const c = app.get(id);
   const [pins, setPins] = useState<Pins>({});
+  const [mode, setMode] = useState<ViewMode>('bead');
   const ras = useMemo(() => (c ? rasterize(c.genes, app.pool) : null), [c, app.pool]);
   if (!c || !ras) return <div className="screen">找不到这只崽了</div>;
   const g = c.genes;
@@ -82,7 +83,10 @@ export default function Detail({ id }: { id: string }) {
     <div className="screen">
       <TopBar onBack={app.back} title="" />
       <div className="big-board" style={{ background: `linear-gradient(160deg, ${tintOf(main, 0.9)}, ${tintOf(main, 0.78)})` }}>
-        <BeadView ras={ras} size={boardSize} board animate boardColor="rgba(255,255,255,0.5)" />
+        <BeadView ras={ras} size={boardSize} board animate melt={700} toggle onMode={setMode} boardColor="rgba(255,255,255,0.5)" />
+        <span className="board-tag" key={mode}>
+          {mode === 'fused' ? '烫好的样子 · 点一下看豆板' : '豆板上 · 点一下看烫好'}
+        </span>
         {c.madeAt && (
           <span className="chip" style={{ position: 'absolute', top: 14, right: 14, background: 'var(--red)', color: '#fff' }}>
             已出生

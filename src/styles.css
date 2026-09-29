@@ -887,6 +887,40 @@ button {
   position: relative;
 }
 
+.board-tag {
+  position: absolute;
+  left: 50%;
+  bottom: -11px;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 12px rgba(110, 80, 50, 0.12);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: rgba(255, 252, 247, 0.86);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 4px 10px;
+  border-radius: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: fade 0.35s both;
+}
+
+.stage-tag {
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-2);
+  background: rgba(255, 252, 247, 0.88);
+  padding: 2px 8px;
+  border-radius: 9px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: fade 0.4s both;
+}
+
 .name-row {
   display: flex;
   align-items: center;
