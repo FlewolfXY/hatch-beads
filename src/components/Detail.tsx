@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { track } from '../lib/track';
 import { PhotoCtx, useApp } from '../ctx';
 import { encode } from '../lib/code';
 import { minutesFor, rasterize } from '../lib/creature';
@@ -185,6 +186,7 @@ export default function Detail({ id }: { id: string }) {
           className="btn btn-ghost btn-sm"
           onClick={async () => {
             await copyText(code);
+            track('copy-code');
             app.toast('豆码已复制，发给朋友配种吧');
           }}
         >

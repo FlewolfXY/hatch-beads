@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { track } from '../lib/track';
 import { useApp } from '../ctx';
 import { decode, encode } from '../lib/code';
 import { rasterize } from '../lib/creature';
@@ -25,6 +26,7 @@ export default function Invite({ code, name, owner }: { code: string; name?: str
 
   const keep = () => {
     if (kept) return;
+    track('invite-keep');
     app.put({ id: uid(), genes, name: nm, createdAt: Date.now(), flavor: '朋友的崽', from: owner || '朋友' }, true);
     setKept(true);
     app.toast('收进豆窝了，随时可以拿它配种');

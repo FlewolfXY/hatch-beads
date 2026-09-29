@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { track } from '../lib/track';
 import { BreedCtx, PhotoCtx, useApp } from '../ctx';
 import { rasterize, Raster } from '../lib/creature';
 import {
@@ -172,16 +173,19 @@ export default function Hatch({ photo, size, round, base, pins, breed: br }: Pro
   };
 
   const onDone = (i: number) => {
+    if (!hatched.some(Boolean)) track(br ? 'hatched-breed' : 'hatched');
     setHatched((h) => h.map((v, j) => (j === i ? true : v)));
     app.put(items[i].c);
   };
 
   const open = (i: number) => {
     if (!hatched[i]) return;
+    track('open-detail');
     app.go({ k: 'detail', id: items[i].c.id });
   };
 
   const again = () => {
+    track('rehatch');
     app.go({ k: 'hatch', photo, size, round: round + 1, base, pins, breed: br }, true);
   };
 

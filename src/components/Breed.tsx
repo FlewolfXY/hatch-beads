@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { track } from '../lib/track';
 import { useApp } from '../ctx';
 import { decode, encode } from '../lib/code';
 import { rasterize } from '../lib/creature';
@@ -74,6 +75,7 @@ export default function Breed({ aId, code: code0, name: name0, owner: owner0 }: 
       if (link) {
         setScanned(link);
         setCode(link.code);
+        track('scan-ok');
         app.toast(link.name ? `认出来了：${link.owner ? link.owner + '的' : ''}「${link.name}」` : '认出来了');
       } else app.toast('这张图里没找到二维码，可以手动输入图上的豆码');
     } catch {
@@ -85,6 +87,7 @@ export default function Breed({ aId, code: code0, name: name0, owner: owner0 }: 
 
   const go = () => {
     if (!b) return;
+    track('breed-start');
     app.go({
       k: 'hatch',
       photo: photoCtxOf(a),

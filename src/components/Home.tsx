@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { track } from '../lib/track';
 import { useApp } from '../ctx';
 import { rasterize } from '../lib/creature';
 import { fileToDataURL } from '../lib/extract';
@@ -76,6 +77,7 @@ export default function Home() {
     if (!f) return;
     const src = await fileToDataURL(f);
     const d = new Date();
+    track('upload-photo');
     app.go({ k: 'extract', src, title: `${d.getMonth() + 1}月${d.getDate()}日的照片` });
   };
 
@@ -137,7 +139,10 @@ export default function Home() {
       </div>
       <div className="samples">
         {SAMPLES.map((s) => (
-          <button key={s.id} className="sample" onClick={() => app.go({ k: 'extract', src: s.src, title: s.title, note: s.note, points: s.points })}>
+          <button key={s.id} className="sample" onClick={() => {
+              track('pick-sample');
+              app.go({ k: 'extract', src: s.src, title: s.title, note: s.note, points: s.points });
+            }}>
             <img src={s.src} alt={s.title} />
             <div className="meta">
               <div className="t">{s.title}</div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { track } from '../lib/track';
 import { useApp } from '../ctx';
 import { downloadCanvas, drawCert, drawTriptych } from '../lib/cert';
 import { rasterize } from '../lib/creature';
@@ -44,6 +45,7 @@ export default function CertView({ id }: { id: string }) {
   const onMade = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    track('made-photo');
     const img = await loadImage(await fileToDataURL(f));
     app.put({ ...draft, madeAt: Date.now(), madePhoto: thumb(img, 720, 0.82) }, true);
     chime();
@@ -52,6 +54,7 @@ export default function CertView({ id }: { id: string }) {
   };
 
   const markMade = () => {
+    track('made-mark');
     app.put({ ...draft, madeAt: Date.now() }, true);
     chime();
     app.toast(`${c.name}出生了`);
@@ -59,6 +62,7 @@ export default function CertView({ id }: { id: string }) {
 
   const save = () => {
     const cv = tab === 'cert' ? certRef.current : triRef.current;
+    track(tab === 'cert' ? (channel === 'wx' ? 'save-cert-wx' : 'save-cert-xhs') : 'save-match');
     if (cv) downloadCanvas(cv, `孵豆-${c.name}-${tab === 'cert' ? (channel === 'wx' ? '出生证-微信' : '出生证-小红书') : '对色卡'}.png`);
     app.toast(tab === 'cert' && channel === 'xhs' ? '已保存，发笔记时记得把豆码也写进正文' : '已保存');
   };

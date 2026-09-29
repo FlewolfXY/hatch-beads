@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { track } from '../lib/track';
 import { useApp } from '../ctx';
 import { analyze, crop, labelAt, LabeledPoint, loadImage, makeSampler, thumb } from '../lib/extract';
 import { PhotoColor, PhotoInfo, readClues, SizeIdx } from '../lib/genes';
@@ -202,6 +203,7 @@ export default function Extract({ src, title, note: note0, points }: Props) {
       n.delete(d.i);
       return n;
     });
+    if (!edited) track('edit-color');
     setEdited(true);
     pop();
   };
@@ -230,6 +232,7 @@ export default function Extract({ src, title, note: note0, points }: Props) {
     const idx = colors.length;
     setColors((cs) => [...cs, { bead, weight: MANUAL_WEIGHT, pos: [nx, ny], label: labelAt(nx, ny, points, bead), crop: crop(img, nx, ny), manual: true }]);
     setLanded((s) => new Set(s).add(idx));
+    if (!edited) track('edit-color');
     setEdited(true);
     tick(1.2);
   };
@@ -244,6 +247,7 @@ export default function Extract({ src, title, note: note0, points }: Props) {
 
   const next = () => {
     if (!info || !img) return;
+    track('to-hatch');
     const seen = new Set<number>();
     const picked = active.filter((c) => (seen.has(c.bead) ? false : (seen.add(c.bead), true)));
     app.go({

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { track } from '../lib/track';
 import { useApp } from '../ctx';
 import { encode } from '../lib/code';
 import { mirrorRaster, rasterize, remap } from '../lib/creature';
@@ -50,6 +51,7 @@ export default function SheetView({ id }: { id: string }) {
   const save = () => {
     const cv = document.createElement('canvas');
     drawSheet(cv, ras, { name: c.name, code: encode(c.genes), mirror, ring, scale: 3, ...source });
+    track(wx ? 'save-sheet-wx' : 'save-sheet-xhs');
     downloadCanvas(cv, `孵豆图纸-${c.name}-${ras.n}x${ras.n}${wx ? '-微信' : ''}.png`);
     app.toast(wx ? '图纸已保存' : '图纸已保存，发笔记时把豆码写进正文就好');
   };
