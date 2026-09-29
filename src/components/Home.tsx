@@ -157,7 +157,7 @@ export default function Home() {
         </div>
         <div style={{ flex: 1 }}>
           <div className="t">朋友发来了豆码？</div>
-          <div className="sub">粘贴过来，和你的崽配一窝</div>
+          <div className="sub">粘贴豆码，或者识别图里的二维码</div>
         </div>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
           <path d="M9 5l7 7-7 7" />

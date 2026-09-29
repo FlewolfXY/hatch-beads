@@ -10,7 +10,9 @@ import { Creature } from '../lib/store';
 import BeadView from './BeadView';
 import { photoCtxOf } from './Detail';
 import { TopBar } from './Home';
-import { Sparkle } from './icons';
+import { Image, Sparkle } from './icons';
+import { parseShare, scanImage, ShareLink } from '../lib/share';
+import { fileToDataURL, loadImage } from '../lib/extract';
 
 const DEMO: Creature = { id: 'demo-metro', genes: SHOWCASE[0], name: '末班车', createdAt: Date.now() };
 
@@ -33,19 +35,51 @@ export default function Breed({ aId, code: code0, name: name0, owner: owner0 }: 
   const a = options.find((x) => x.id === aSel) ?? options[0];
   const friendCodes = useMemo(() => FRIENDS.map((f) => ({ ...f, code: encode(f.genes) })), []);
   const b: Genes | null = useMemo(() => decode(code), [code]);
+  const [scanned, setScanned] = useState<ShareLink | null>(null);
+  const [scanning, setScanning] = useState(false);
   const fromLink = !!(b && invited && encode(b) === encode(invited));
+  const fromScan = !!(b && scanned && encode(b) === scanned.code);
   const friendFound = friendCodes.find((f) => b && encode(b) === f.code);
-  const friend = fromLink && name0 ? { name: name0, owner: owner0 } : friendFound;
+  const friend = fromLink && name0 ? { name: name0, owner: owner0 } : fromScan && scanned?.name ? { name: scanned.name, owner: scanned.owner } : friendFound;
   const bName = friend ? friend.name : b ? nameFor(b, 3) : '';
   const rasA = useMemo(() => rasterize(a.genes, app.pool), [a.genes, app.pool]);
   const rasB = useMemo(() => (b ? rasterize({ ...b, size: a.genes.size }, app.pool) : null), [b, a.genes.size, app.pool]);
 
+  // 粘进来的可能是豆码，也可能是整条分享链接
+  const take = (text: string) => {
+    const t = text.trim();
+    const link = t.includes('#b=') ? parseShare(t.slice(t.indexOf('#'))) : null;
+    if (link) {
+      setScanned(link);
+      setCode(link.code);
+    } else setCode(t);
+  };
+
   const paste = async () => {
     try {
-      const t = await navigator.clipboard.readText();
-      setCode(t.trim());
+      take(await navigator.clipboard.readText());
     } catch {
       app.toast('没法读剪贴板，手动粘贴一下吧');
+    }
+  };
+
+  const scan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    setScanning(true);
+    try {
+      const img = await loadImage(await fileToDataURL(f));
+      const link = await scanImage(img);
+      if (link) {
+        setScanned(link);
+        setCode(link.code);
+        app.toast(link.name ? `认出来了：${link.owner ? link.owner + '的' : ''}「${link.name}」` : '认出来了');
+      } else app.toast('这张图里没找到二维码，可以手动输入图上的豆码');
+    } catch {
+      app.toast('这张图读不出来，换一张试试');
+    } finally {
+      setScanning(false);
     }
   };
 
@@ -70,7 +104,7 @@ export default function Breed({ aId, code: code0, name: name0, owner: owner0 }: 
         你身上，会有我的颜色
       </h1>
       <p className="lead" style={{ fontSize: 14 }}>
-        粘贴朋友发来的豆码，两只崽的基因会混在一起。豆码里只有基因，没有照片。
+        粘贴朋友发来的豆码，或者选一张带二维码的图，两只崽的基因会混在一起。豆码里只有基因，没有照片。
       </p>
 
       <div className="parents">
@@ -103,7 +137,9 @@ export default function Breed({ aId, code: code0, name: name0, owner: owner0 }: 
             <>
               <BeadView ras={rasB} size={112} animate />
               <div className="nm">{bName}</div>
-              <div className="ow">{fromLink ? (friend?.owner ? `${friend.owner}的崽` : '朋友的崽') : friendFound ? `${friendFound.owner}的崽（示例）` : 'TA 的崽'}</div>
+              <div className="ow">
+                {fromLink || fromScan ? (friend?.owner ? `${friend.owner}的崽` : '朋友的崽') : friendFound ? `${friendFound.owner}的崽（示例）` : 'TA 的崽'}
+              </div>
             </>
           ) : (
             <div className="sub" style={{ padding: 10 }}>
@@ -134,11 +170,16 @@ export default function Breed({ aId, code: code0, name: name0, owner: owner0 }: 
         </h2>
       </div>
       <div className="code-input">
-        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="HD-XXXX-XXXX-XXXX-XXXX" spellCheck={false} autoCapitalize="characters" />
+        <input value={code} onChange={(e) => take(e.target.value)} placeholder="HD-XXXX-XXXX-XXXX-XXXX" spellCheck={false} autoCapitalize="characters" />
         <button className="btn btn-ghost btn-sm" onClick={paste}>
           粘贴
         </button>
       </div>
+      <label className="btn btn-ghost btn-block upload" style={{ marginTop: 10 }}>
+        <Image size={18} />
+        {scanning ? '正在认二维码…' : '从相册选一张带二维码的出生证或图纸'}
+        <input type="file" accept="image/*" onChange={scan} disabled={scanning} />
+      </label>
       <div className="sub" style={{ margin: '12px 2px 8px' }}>
         还没有朋友的豆码？先试试这些示例：
       </div>

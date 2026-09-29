@@ -1,6 +1,7 @@
 import { minutesFor, Raster } from './creature';
 import { BEADS, textOn } from './palette';
 import { roundRect } from './render';
+import { drawQR } from './share';
 
 export const FONT = '"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
 export const MONO = '"SF Mono","JetBrains Mono",ui-monospace,Menlo,monospace';
@@ -11,6 +12,10 @@ export interface SheetOpts {
   mirror: boolean;
   ring: boolean;
   scale?: number;
+  /** 发微信时印二维码 */
+  qr?: string;
+  /** 发微信时印网址 */
+  site?: string;
 }
 
 export interface SheetResult {
@@ -68,16 +73,26 @@ export function drawSheet(canvas: HTMLCanvasElement, r: Raster, o: SheetOpts): S
   const total = r.total + ring.size;
   ctx.fillText(`${n}×${n} · ${total} 颗 · ${list.length + (ring.size ? 1 : 0)} 色 · 约 ${minutesFor(total)} 分钟 · MARD 色号`, pad, pad + 50);
   ctx.font = `12px ${MONO}`;
-  ctx.fillText(o.code, pad, pad + 72);
+  ctx.fillText(`豆码 ${o.code}`, pad, pad + 72);
+  const qs = 84;
+  if (o.qr) {
+    drawQR(ctx, o.qr, width - pad - qs, pad - 6, qs);
+    ctx.fillStyle = '#A99D92';
+    ctx.font = `600 10px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.fillText('扫码和它配一窝', width - pad - qs / 2, pad - 6 + qs + 14);
+    ctx.textAlign = 'left';
+  }
   if (o.mirror) {
     const tag = '镜像施工图 · 拼好翻面烫';
     ctx.font = `600 12px ${FONT}`;
     const tw = ctx.measureText(tag).width + 18;
+    const tx = width - pad - tw - (o.qr ? qs + 12 : 0);
     ctx.fillStyle = '#FFE9EC';
-    roundRect(ctx, width - pad - tw, pad + 8, tw, 24, 12);
+    roundRect(ctx, tx, pad + 8, tw, 24, 12);
     ctx.fill();
     ctx.fillStyle = '#E0314B';
-    ctx.fillText(tag, width - pad - tw + 9, pad + 24);
+    ctx.fillText(tag, tx + 9, pad + 24);
   }
 
   const gx = pad + axis,
@@ -180,7 +195,7 @@ export function drawSheet(canvas: HTMLCanvasElement, r: Raster, o: SheetOpts): S
     ctx.fillText(`(${Math.ceil(it.count * 1.08) + 1})`, x + 36 + cwid + w2, y + 18);
   });
   ctx.fillStyle = '#B3A89E';
-  ctx.font = `11px ${FONT}`;
-  ctx.fillText('孵豆 · 屏幕里孵，手里出生 · 色值为屏幕近似色，以实物豆为准', pad, height - 22);
+  ctx.font = `11px ${o.site ? MONO : FONT}`;
+  ctx.fillText(o.site ? `孵豆 · ${o.site} · 色值为屏幕近似色，以实物豆为准` : '孵豆 · 屏幕里孵，手里出生 · 色值为屏幕近似色，以实物豆为准', pad, height - 22);
   return { width, height, list, ringCount: ring.size, total };
 }

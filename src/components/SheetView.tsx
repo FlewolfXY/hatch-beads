@@ -8,6 +8,7 @@ import { drawSheet } from '../lib/sheet';
 import { downloadCanvas } from '../lib/cert';
 import { BeadStyle } from '../lib/render';
 import { poolOf } from '../lib/store';
+import { isLocalHost, loadNick, shareUrl, siteLabel } from '../lib/share';
 import BeadView from './BeadView';
 import { Steps } from './Extract';
 import { TopBar } from './Home';
@@ -32,19 +33,25 @@ export default function SheetView({ id }: { id: string }) {
     return r;
   }, [base, mine, hasMine, minePool, mirror]);
 
+  const [wx, setWx] = useState(false);
+  const source = useMemo(
+    () => (wx ? { qr: shareUrl({ code: encode(c.genes), name: c.name, owner: loadNick() || undefined }), site: siteLabel() || undefined } : {}),
+    [wx, c.genes, c.name],
+  );
+
   useEffect(() => {
     if (tab !== 'sheet' || !cvRef.current) return;
-    drawSheet(cvRef.current, ras, { name: c.name, code: encode(c.genes), mirror, ring });
-  }, [ras, c.name, c.genes, mirror, ring, tab]);
+    drawSheet(cvRef.current, ras, { name: c.name, code: encode(c.genes), mirror, ring, ...source });
+  }, [ras, c.name, c.genes, mirror, ring, tab, source]);
 
   const changed = mine && hasMine ? base.colors.filter((x) => !minePool.includes(x.bead)).length : 0;
   const setSize = (s: SizeIdx) => app.put({ ...c, genes: { ...c.genes, size: s } });
 
   const save = () => {
     const cv = document.createElement('canvas');
-    drawSheet(cv, ras, { name: c.name, code: encode(c.genes), mirror, ring, scale: 3 });
-    downloadCanvas(cv, `孵豆图纸-${c.name}-${ras.n}x${ras.n}.png`);
-    app.toast('图纸已保存');
+    drawSheet(cv, ras, { name: c.name, code: encode(c.genes), mirror, ring, scale: 3, ...source });
+    downloadCanvas(cv, `孵豆图纸-${c.name}-${ras.n}x${ras.n}${wx ? '-微信' : ''}.png`);
+    app.toast(wx ? '图纸已保存' : '图纸已保存，发笔记时把豆码写进正文就好');
   };
 
   return (
@@ -107,6 +114,13 @@ export default function SheetView({ id }: { id: string }) {
               <small>在背面拼、翻过来烫的时候用</small>
             </span>
             <span className={`switch ${mirror ? 'on' : ''}`} />
+          </button>
+          <button className="toggle" onClick={() => setWx((v) => !v)}>
+            <span className="t">
+              印上二维码和网址
+              <small>{wx ? (isLocalHost() ? '现在是本地预览网址，别人扫不开' : '发微信好友用；小红书笔记里别放二维码') : '发小红书时关着，图纸上只印豆码'}</small>
+            </span>
+            <span className={`switch ${wx ? 'on' : ''}`} />
           </button>
           <button className="toggle" onClick={() => setRing((v) => !v)}>
             <span className="t">

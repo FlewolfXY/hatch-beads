@@ -3,7 +3,7 @@ import { rasterize, Raster } from './creature';
 import { tags } from './genes';
 import { sourceLabel, sourceLabels } from './names';
 import { BEADS, L, STANDARD } from './palette';
-import { qrMatrix } from './share';
+import { drawQR, siteLabel } from './share';
 import { beadSprite, drawBoard, drawRaster, roundRect } from './render';
 import { FONT, MONO } from './sheet';
 import { Creature } from './store';
@@ -98,47 +98,6 @@ function pendingStamp(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.fillText('待出生', 0, 4);
   ctx.font = `600 14px ${FONT}`;
   ctx.fillText('烫好预览', 0, 32);
-  ctx.restore();
-}
-
-/** 二维码：定位角画成圆角框，其余的点画成圆角小方块，像烫好的豆子 */
-function drawQR(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number) {
-  const qr = qrMatrix(text);
-  const n = qr.size;
-  const pad = 10;
-  const m = (size - pad * 2) / n;
-  ctx.save();
-  ctx.fillStyle = '#FFFFFF';
-  roundRect(ctx, x, y, size, size, 18);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(43,35,32,0.12)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  const ox = x + pad,
-    oy = y + pad;
-  ctx.fillStyle = INK;
-  const finder = (fx: number, fy: number) => fx < 7 && fy < 7;
-  const isFinder = (i: number, j: number) => finder(i, j) || finder(n - 1 - i, j) || finder(i, n - 1 - j);
-  for (let j = 0; j < n; j++)
-    for (let i = 0; i < n; i++) {
-      if (!qr.data[j][i] || isFinder(i, j)) continue;
-      roundRect(ctx, ox + i * m + m * 0.06, oy + j * m + m * 0.06, m * 0.88, m * 0.88, m * 0.3);
-      ctx.fill();
-    }
-  for (const [fx, fy] of [
-    [0, 0],
-    [n - 7, 0],
-    [0, n - 7],
-  ]) {
-    const X = ox + fx * m,
-      Y = oy + fy * m;
-    ctx.lineWidth = m;
-    ctx.strokeStyle = INK;
-    roundRect(ctx, X + m / 2, Y + m / 2, m * 6, m * 6, m * 1.6);
-    ctx.stroke();
-    roundRect(ctx, X + m * 2, Y + m * 2, m * 3, m * 3, m * 0.8);
-    ctx.fill();
-  }
   ctx.restore();
 }
 
@@ -436,9 +395,10 @@ export async function drawCert(canvas: HTMLCanvasElement, c: Creature, ras: Rast
     ctx.fillText(opts.owner ? `${opts.owner}的崽 · 长按识别二维码` : '长按识别二维码，打开孵豆', tx1, qy + 90);
     ctx.font = `600 19px ${MONO}`;
     ctx.fillText(code, tx1, qy + 128);
+    const site = siteLabel();
     ctx.fillStyle = '#B3A89E';
-    ctx.font = `500 18px ${FONT}`;
-    ctx.fillText(`${stats} · 孵豆 · 屏幕里孵，手里出生`, tx1, qy + 162);
+    ctx.font = `500 18px ${site ? MONO : FONT}`;
+    ctx.fillText(fit(ctx, site ? `${site} · ${stats}` : `${stats} · 孵豆 · 屏幕里孵，手里出生`, W - 110 - tx1), tx1, qy + 162);
   } else {
     const sy = STUB + 54;
     ctx.fillStyle = MUTED;
