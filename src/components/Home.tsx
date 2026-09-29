@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { track } from '../lib/track';
 import { useApp } from '../ctx';
 import { rasterize } from '../lib/creature';
-import { fileToDataURL } from '../lib/extract';
+import { normalizeUpload } from '../lib/extract';
 import { SAMPLES, SHOWCASE } from '../lib/samples';
 import BeadView, { ViewMode } from './BeadView';
 import { Box, Camera, Link, SoundOff, SoundOn } from './icons';
@@ -75,7 +75,14 @@ export default function Home() {
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    const src = await fileToDataURL(f);
+    e.target.value = '';
+    let src: string;
+    try {
+      src = await normalizeUpload(f);
+    } catch {
+      app.toast('这张照片读不出来，换一张试试');
+      return;
+    }
     const d = new Date();
     track('upload-photo');
     app.go({ k: 'extract', src, title: `${d.getMonth() + 1}月${d.getDate()}日的照片` });

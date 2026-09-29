@@ -3,7 +3,7 @@ import { track } from '../lib/track';
 import { useApp } from '../ctx';
 import { downloadCanvas, drawCert, drawTriptych } from '../lib/cert';
 import { rasterize } from '../lib/creature';
-import { fileToDataURL, loadImage, thumb } from '../lib/extract';
+import { loadImage, normalizeUpload, thumb } from '../lib/extract';
 import { chime } from '../lib/sound';
 import { encode } from '../lib/code';
 import { isLocalHost, loadNick, saveNick, shareUrl } from '../lib/share';
@@ -46,7 +46,7 @@ export default function CertView({ id }: { id: string }) {
     const f = e.target.files?.[0];
     if (!f) return;
     track('made-photo');
-    const img = await loadImage(await fileToDataURL(f));
+    const img = await loadImage(await normalizeUpload(f));
     app.put({ ...draft, madeAt: Date.now(), madePhoto: thumb(img, 720, 0.82) }, true);
     chime();
     app.toast(`${c.name}出生了`);

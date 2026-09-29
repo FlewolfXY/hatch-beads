@@ -70,27 +70,34 @@ export default function Extract({ src, title, note: note0, points }: Props) {
   const sampler = useRef<ReturnType<typeof makeSampler> | null>(null);
   const suppressClick = useRef(false);
 
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     let alive = true;
     (async () => {
-      const im = await loadImage(src);
-      const t0 = performance.now();
-      const res = await analyze(im, app.pool, points);
-      sampler.current = makeSampler(im);
-      const wait = Math.max(0, 1100 - (performance.now() - t0));
-      setTimeout(() => {
-        if (!alive) return;
-        setImg(im);
-        setInfo(res);
-        setColors(res.colors);
-        setPhase('mark');
-        pop();
-      }, wait);
+      try {
+        const im = await loadImage(src);
+        const t0 = performance.now();
+        const res = await analyze(im, app.pool, points);
+        sampler.current = makeSampler(im);
+        const wait = Math.max(0, 1100 - (performance.now() - t0));
+        setTimeout(() => {
+          if (!alive) return;
+          setImg(im);
+          setInfo(res);
+          setColors(res.colors);
+          setPhase('mark');
+          pop();
+        }, wait);
+      } catch {
+        if (alive) setFailed(true);
+      }
     })();
     return () => {
       alive = false;
     };
-  }, [src, app.pool, points]);
+  }, [src, app.pool, points, attempt]);
 
   /** 照片上的显示坐标 ↔ 原图的归一化坐标（照片是 object-fit: cover） */
   const frame = () => {
@@ -322,9 +329,25 @@ export default function Extract({ src, title, note: note0, points }: Props) {
         <div className="row" style={{ justifyContent: 'space-between', margin: '0 6px 10px' }}>
           <b style={{ fontSize: 14 }}>豆盘</b>
           <span className="sub" style={{ fontSize: 12 }}>
-            {phase === 'scan' ? '正在从照片里挑颜色…' : phase === 'done' ? '点一颗豆，先拿掉它' : '颜色正在跳进豆盘'}
+            {failed ? '这张照片没读出来' : phase === 'scan' ? '正在从照片里挑颜色…' : phase === 'done' ? '点一颗豆，先拿掉它' : '颜色正在跳进豆盘'}
           </span>
         </div>
+        {failed && (
+          <div className="row" style={{ margin: '0 6px 10px' }}>
+            <button
+              className="btn btn-primary btn-sm grow"
+              onClick={() => {
+                setFailed(false);
+                setAttempt((a) => a + 1);
+              }}
+            >
+              再读一次
+            </button>
+            <button className="btn btn-ghost btn-sm grow" onClick={app.back}>
+              换一张照片
+            </button>
+          </div>
+        )}
         <div className="tray-row">
           {(colors.length ? colors : Array.from({ length: 5 }, () => null)).map((c, i) => (
             <div key={i} ref={(el) => (slotRefs.current[i] = el)} className={`tray-slot ${off.has(i) ? 'off' : ''}`} onClick={() => toggle(i)}>

@@ -13,7 +13,7 @@ import { photoCtxOf } from './Detail';
 import { TopBar } from './Home';
 import { Image, Sparkle } from './icons';
 import { parseShare, scanImage, ShareLink } from '../lib/share';
-import { fileToDataURL, loadImage } from '../lib/extract';
+import { loadImage, normalizeUpload } from '../lib/extract';
 
 const DEMO: Creature = { id: 'demo-metro', genes: SHOWCASE[0], name: '末班车', createdAt: Date.now() };
 
@@ -70,7 +70,7 @@ export default function Breed({ aId, code: code0, name: name0, owner: owner0 }: 
     if (!f) return;
     setScanning(true);
     try {
-      const img = await loadImage(await fileToDataURL(f));
+      const img = await loadImage(await normalizeUpload(f));
       const link = await scanImage(img);
       if (link) {
         setScanned(link);

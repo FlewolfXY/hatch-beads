@@ -10,13 +10,72 @@ export interface LabeledPoint {
   label: string;
 }
 
+/** 等图片真正解码完再返回：手机 Safari 有时 onload 了但像素还没准备好，画到画布上是空的 */
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => {
     const img = new Image();
-    img.onload = () => res(img);
+    img.onload = async () => {
+      try {
+        await img.decode();
+      } catch {
+        /* 老浏览器没有 decode()，onload 就够了 */
+      }
+      res(img);
+    };
     img.onerror = rej;
     img.src = src;
   });
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** 画到画布上以后检查一下是不是空的：一个像素都没画上才算失败，透明底的贴纸不算 */
+export function drawnOk(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const d = ctx.getImageData(0, 0, w, h).data;
+  for (let i = 3; i < d.length; i += 8) if (d[i] > 0) return true;
+  return false;
+}
+
+/** 选好的照片先缩到 1600px 以内：手机原图太大，解码慢、容易出现空白 */
+export async function normalizeUpload(file: File, max = 1600): Promise<string> {
+  const img = await loadImage(await fileToDataURL(file));
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * s)),
+    h = Math.max(1, Math.round(img.naturalHeight * s));
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  const finish = () => {
+    // 透明底垫成白色，转 JPEG 时才不会变黑
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const o = out.getContext('2d')!;
+    o.fillStyle = '#FFFFFF';
+    o.fillRect(0, 0, w, h);
+    o.drawImage(c, 0, 0);
+    return out.toDataURL('image/jpeg', 0.9);
+  };
+  for (let k = 0; k < 6; k++) {
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    if (drawnOk(ctx, w, h)) return finish();
+    await wait(120 * (k + 1));
+  }
+  // 兜底：直接从文件解码（不走 <img>），有的手机浏览器这样更稳
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bmp = await createImageBitmap(file);
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(bmp, 0, 0, w, h);
+      bmp.close?.();
+      if (drawnOk(ctx, w, h)) return finish();
+    } catch {
+      /* 继续往下报错 */
+    }
+  }
+  throw new Error('image-not-ready');
 }
 
 export function fileToDataURL(file: File): Promise<string> {
@@ -114,7 +173,15 @@ export async function analyze(img: HTMLImageElement, pool: Pool, points?: Labele
   c.width = w;
   c.height = h;
   const ctx = c.getContext('2d', { willReadFrequently: true })!;
-  ctx.drawImage(img, 0, 0, w, h);
+  // 画出来是空的就等一下再画，别把空白当成黑色
+  let ready = false;
+  for (let k = 0; k < 6 && !ready; k++) {
+    if (k) await wait(120 * k);
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    ready = drawnOk(ctx, w, h);
+  }
+  if (!ready) throw new Error('image-not-ready');
   const data = ctx.getImageData(0, 0, w, h).data;
   const N = w * h;
   const labs: Lab[] = new Array(N);
