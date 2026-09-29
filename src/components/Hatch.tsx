@@ -54,9 +54,14 @@ interface Item {
   newBead?: number;
 }
 
+const clutchCache = new Map<string, { items: Item[]; hatched: boolean[] }>();
+
 export default function Hatch({ photo, size, round, base, pins, breed: br }: Props) {
   const app = useApp();
+  const cacheKey = br ? `b:${br.seed}:${round}:${size}` : `p:${photo.info.seed}:${round}:${size}:${base?.id ?? ''}:${JSON.stringify(pins ?? {})}`;
+  const cached = clutchCache.get(cacheKey);
   const items: Item[] = useMemo(() => {
+    if (cached) return cached.items;
     const n = [16, 20, 24][size];
     if (br) {
       const kids = breed(br.a.genes, br.b, br.seed + round * 101, app.pool, br.a.name, br.bName);
@@ -103,9 +108,13 @@ export default function Hatch({ photo, size, round, base, pins, breed: br }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [hatched, setHatched] = useState<boolean[]>([false, false, false]);
+  const [hatched, setHatched] = useState<boolean[]>(() => cached?.hatched ?? [false, false, false]);
   const [trigger, setTrigger] = useState<number[]>([0, 0, 0]);
+  const [initial] = useState(() => cached?.hatched ?? [false, false, false]);
   const all = hatched.every(Boolean);
+  useEffect(() => {
+    clutchCache.set(cacheKey, { items, hatched });
+  }, [cacheKey, items, hatched]);
 
   const hatchAll = () => {
     let k = 0;
@@ -156,7 +165,7 @@ export default function Hatch({ photo, size, round, base, pins, breed: br }: Pro
       )}
       <div className="clutch">
         {items.map((it, i) => (
-          <HatchCard key={it.c.id} item={it} index={i} trigger={trigger[i]} hatched={hatched[i]} onDone={() => onDone(i)} onOpen={() => open(i)} />
+          <HatchCard key={it.c.id} item={it} index={i} trigger={trigger[i]} hatched={hatched[i]} born={initial[i]} onDone={() => onDone(i)} onOpen={() => open(i)} />
         ))}
       </div>
       <div className="bottom-bar">
@@ -187,7 +196,23 @@ interface Particle {
   rot: number;
 }
 
-function HatchCard({ item, index, trigger, hatched, onDone, onOpen }: { item: Item; index: number; trigger: number; hatched: boolean; onDone: () => void; onOpen: () => void }) {
+function HatchCard({
+  item,
+  index,
+  trigger,
+  hatched,
+  born,
+  onDone,
+  onOpen,
+}: {
+  item: Item;
+  index: number;
+  trigger: number;
+  hatched: boolean;
+  born: boolean;
+  onDone: () => void;
+  onOpen: () => void;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   const holding = useRef(false);
   const auto = useRef(false);
@@ -206,7 +231,7 @@ function HatchCard({ item, index, trigger, hatched, onDone, onOpen }: { item: It
     const n = ras.n;
     const pad = 6;
     const px = (S - pad * 2) / n;
-    let phase: 'idle' | 'burst' | 'done' = 'idle';
+    let phase: 'idle' | 'burst' | 'done' = born ? 'done' : 'idle';
     let charge = 0;
     let last = performance.now();
     let burstAt = 0;
