@@ -352,7 +352,8 @@ function drawFused(ctx: CanvasRenderingContext2D, ras: Raster, grid: Int16Array,
 
 /* ---------------- 蛋 ---------------- */
 
-export type EggStyle = 'zigzag' | 'dots' | 'stripes' | 'split';
+export type EggStyle = 'zigzag' | 'dots' | 'stripes' | 'bands' | 'cap' | 'speckle' | 'spots' | 'marble';
+export type EggShape = 'round' | 'normal' | 'tall';
 
 export interface EggRaster {
   n: number;
@@ -360,13 +361,29 @@ export interface EggRaster {
   crack: number[];
 }
 
-export function makeEgg(n: number, main: number, pat: number, sub: number, style: EggStyle, pool: Pool, other?: number): EggRaster {
+export interface EggOpts {
+  main: number;
+  pat: number;
+  sub: number;
+  style: EggStyle;
+  pool: Pool;
+  /** spots / marble 里的第二种底色 */
+  other?: number;
+  /** 撒在蛋壳上的新豆 */
+  extra?: number;
+  shape?: EggShape;
+  seed?: number;
+}
+
+export function makeEgg(n: number, o: EggOpts): EggRaster {
+  const { main, pat, sub, style, pool, other = pat, extra } = o;
   const bead = new Int16Array(n * n).fill(-1);
   const d = derive(main, pool);
+  const [kx, ky] = o.shape === 'round' ? [0.36, 0.4] : o.shape === 'tall' ? [0.3, 0.44] : [0.33, 0.42];
   const cx = n / 2,
     cy = n * 0.55,
-    rx = n * 0.33,
-    ry = n * 0.42;
+    rx = n * kx,
+    ry = n * ky;
   const inside = (x: number, y: number) => {
     const v = (y + 0.5 - cy) / ry;
     const rxe = v < 0 ? rx * (1 + 0.2 * v) : rx;
@@ -375,26 +392,53 @@ export function makeEgg(n: number, main: number, pat: number, sub: number, style
   const role = new Uint8Array(n * n);
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (inside(x, y)) role[y * n + x] = 1;
   const mid = Math.round(cy);
+  let s = (o.seed ?? 7) >>> 0 || 7;
+  const rnd = () => {
+    s = (Math.imul(s, 1103515245) + 12345) >>> 0;
+    return (s >>> 8) / 16777216;
+  };
+  const phase = Math.floor(rnd() * 4);
+  const top = Math.round(cy - ry);
   for (let y = 0; y < n; y++)
     for (let x = 0; x < n; x++) {
       const i = y * n + x;
       if (!role[i]) continue;
       let b = main;
       if (style === 'zigzag') {
-        const z = mid + (x % 4 < 2 ? 0 : 1);
+        const z = mid + ((x + phase) % 4 < 2 ? 0 : 1);
         if (y === z || y === z + 1) b = pat;
-        if (y === z - 3 && x % 4 === 1) b = sub;
+        if (y === z - 3 && (x + phase) % 4 === 1) b = sub;
       } else if (style === 'dots') {
-        if ((x + (y % 4 < 2 ? 0 : 2)) % 4 === 0 && y % 2 === 0) b = pat;
+        if ((x + phase + (y % 4 < 2 ? 0 : 2)) % 4 === 0 && y % 2 === 0) b = pat;
       } else if (style === 'stripes') {
-        if ((x + y) % 5 < 2) b = pat;
-      } else if (style === 'split' && other !== undefined) {
-        const seam = cx + (y % 4 < 2 ? 0 : 1) - 0.5;
-        b = x < seam ? main : other;
-        if ((x * 7 + y * 3) % 11 === 0) b = pat;
+        if ((x + y + phase) % 5 < 2) b = pat;
+      } else if (style === 'bands') {
+        if ((y - top + phase) % 4 < 2 && y > top + 1) b = pat;
+      } else if (style === 'cap') {
+        const edge = top + Math.round(ry * 0.75) + ((x + phase) % 4 < 2 ? 0 : 1);
+        if (y < edge) b = pat;
+        else if (y === edge + 1 && (x + phase) % 4 === 0) b = sub;
+      } else if (style === 'marble') {
+        const v = Math.sin(x * 0.55 + Math.sin(y * 0.42 + phase) * 2.2 + phase);
+        b = v > 0.15 ? main : v < -0.15 ? other : sub;
       }
       bead[i] = b;
     }
+  if (style === 'speckle' || style === 'spots') {
+    const cells = [...role.keys()].filter((i) => role[i]);
+    const count = Math.round(cells.length * (style === 'spots' ? 0.07 : 0.12));
+    for (let k = 0; k < count; k++) {
+      const i = cells[Math.floor(rnd() * cells.length)];
+      const col = style === 'spots' ? other : rnd() < 0.6 ? pat : sub;
+      bead[i] = col;
+      // 斑块：往右和往下再长一颗
+      if (style === 'spots') for (const j of [i + 1, i + n]) if (role[j] && rnd() < 0.8) bead[j] = col;
+    }
+  }
+  if (extra !== undefined) {
+    const cells = [...role.keys()].filter((i) => role[i]);
+    for (let k = 0; k < Math.max(3, Math.round(cells.length * 0.03)); k++) bead[cells[Math.floor(rnd() * cells.length)]] = extra;
+  }
   // 描边与高光
   for (let y = 0; y < n; y++)
     for (let x = 0; x < n; x++) {

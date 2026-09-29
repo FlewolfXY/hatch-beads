@@ -17,7 +17,7 @@ import {
 } from '../lib/genes';
 import { nameFor } from '../lib/names';
 import { BEADS, derive, STANDARD } from '../lib/palette';
-import { beadSprite, drawEgg, drawRaster, EggRaster, makeEgg, setupCanvas } from '../lib/render';
+import { beadSprite, drawEgg, drawRaster, EggRaster, EggShape, EggStyle, makeEgg, setupCanvas } from '../lib/render';
 import { hashNums, mulberry32, uid } from '../lib/rng';
 import { chime, crack, tick } from '../lib/sound';
 import { Creature } from '../lib/store';
@@ -46,13 +46,39 @@ const BODY_HINT: Record<Body, string> = {
   dino: '硬硬的，好像长了小刺',
 };
 
+type Lean = 'a' | 'b' | 'mix';
+
 interface Item {
   c: Creature;
   ras: Raster;
   egg: EggRaster;
   flavor?: Flavor;
+  lean?: Lean;
   notes?: string[];
   newBead?: number;
+}
+
+const LEAN_LABEL: Record<Lean, [string, string]> = {
+  a: ['随你', '眉眼里有你的影子'],
+  b: ['随TA', '一看就是TA家的崽'],
+  mix: ['混血款', '谁都不像，又谁都像'],
+};
+
+const eggShape = (b: Body): EggShape => (['mochi', 'cat', 'mush', 'dino'].includes(b) ? 'round' : ['bean', 'ghost', 'jelly'].includes(b) ? 'tall' : 'normal');
+
+function eggStyleFor(g: Genes, taken: EggStyle[]): EggStyle {
+  const pref: EggStyle[] =
+    g.pattern === 'stripes'
+      ? g.dir % 2 ? ['stripes', 'bands'] : ['bands', 'stripes']
+      : g.pattern === 'dots'
+        ? ['dots', 'speckle']
+        : g.pattern === 'belly' || g.pattern === 'fade'
+          ? ['cap', 'zigzag']
+          : g.pattern === 'heart'
+            ? ['speckle', 'dots']
+            : ['zigzag', 'speckle'];
+  const all: EggStyle[] = [...pref, 'zigzag', 'speckle', 'dots', 'bands', 'cap', 'stripes'];
+  return all.find((s) => !taken.includes(s)) ?? 'zigzag';
 }
 
 const clutchCache = new Map<string, { items: Item[]; hatched: boolean[] }>();
@@ -81,19 +107,28 @@ export default function Hatch({ photo, size, round, base, pins, breed: br }: Pro
           notes: k.notes,
           newBead: k.newBead,
         };
-        return {
-          c,
-          ras: rasterize(g, app.pool),
-          egg: makeEgg(n, br.a.genes.colors.main, k.newBead ?? g.colors.pat, g.colors.sub, 'split', app.pool, br.b.colors.main),
-          notes: k.notes,
-          newBead: k.newBead,
-        };
+        const lean: Lean = (['a', 'b', 'mix'] as const)[i];
+        const [baseCol, otherCol] = lean === 'b' ? [br.b.colors.main, br.a.genes.colors.main] : [br.a.genes.colors.main, br.b.colors.main];
+        const egg = makeEgg(n, {
+          main: baseCol,
+          other: otherCol,
+          pat: g.colors.pat,
+          sub: g.colors.sub,
+          style: lean === 'mix' ? 'marble' : 'spots',
+          extra: k.newBead,
+          shape: eggShape(g.body),
+          seed: br.seed + i * 131 + round,
+          pool: app.pool,
+        });
+        return { c, ras: rasterize(g, app.pool), egg, lean, notes: k.notes, newBead: k.newBead };
       });
     }
     const clutch = makeClutch({ photo: photo.info, size, round, pool: app.pool, base: base?.genes, pins });
     const flavors: Flavor[] = ['steady', 'cute', 'wild'];
-    const styles = ['zigzag', 'dots', 'stripes'] as const;
+    const taken: EggStyle[] = [];
     return clutch.map((g, i) => {
+      const style = eggStyleFor(g, taken);
+      taken.push(style);
       const { colors, ...rest } = photo.info;
       const c: Creature = {
         id: uid() + i,
@@ -104,7 +139,16 @@ export default function Hatch({ photo, size, round, base, pins, breed: br }: Pro
         photo: { title: photo.title, thumb: photo.thumb, colors, info: rest },
         note: photo.note,
       };
-      return { c, ras: rasterize(g, app.pool), egg: makeEgg(n, g.colors.main, g.colors.pat, g.colors.sub, styles[i], app.pool), flavor: flavors[i] };
+      const egg = makeEgg(n, {
+        main: g.colors.main,
+        pat: g.colors.pat,
+        sub: g.colors.sub,
+        style,
+        shape: eggShape(g.body),
+        seed: photo.info.seed + round * 17 + i,
+        pool: app.pool,
+      });
+      return { c, ras: rasterize(g, app.pool), egg, flavor: flavors[i] };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -392,9 +436,9 @@ function HatchCard({
       <div className="info">
         <div className="flavor">
           <span className="flavor-pill" style={{ background: tintOf(BEADS[g.colors.main].hex, 0.72), color: BEADS[derive(g.colors.main, STANDARD).out].hex }}>
-            {item.flavor ? FLAVOR_LABEL[item.flavor] : '混血款'}
+            {item.flavor ? FLAVOR_LABEL[item.flavor] : LEAN_LABEL[item.lean ?? 'mix'][0]}
           </span>
-          {item.flavor ? FLAVOR_DESC[item.flavor] : '你俩的颜色混在一起'}
+          {item.flavor ? FLAVOR_DESC[item.flavor] : LEAN_LABEL[item.lean ?? 'mix'][1]}
         </div>
         {hatched ? (
           <>
