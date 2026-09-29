@@ -56,6 +56,34 @@ function connected(bead: Int16Array, n: number) {
   return c === bead.filter((b) => b >= 0).length;
 }
 
+function eyeGroups(role: Uint8Array, n: number) {
+  const seen = new Uint8Array(n * n);
+  let groups = 0;
+  for (let i = 0; i < n * n; i++) {
+    if (role[i] !== EYE || seen[i]) continue;
+    groups++;
+    const st = [i];
+    seen[i] = 1;
+    while (st.length) {
+      const c = st.pop()!;
+      const x = c % n,
+        y = (c / n) | 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+          const j = ny * n + nx;
+          if (role[j] === EYE && !seen[j]) {
+            seen[j] = 1;
+            st.push(j);
+          }
+        }
+    }
+  }
+  return groups;
+}
+
 let fail = 0;
 const t0 = performance.now();
 for (let k = 0; k < 1000; k++) {
@@ -68,6 +96,8 @@ for (let k = 0; k < 1000; k++) {
   if (ras.colors.length > budget[g.size]) errs.push(`colors ${ras.colors.length}`);
   if (!ras.role.some((x) => x === EYE)) errs.push('no eyes');
   if (JSON.stringify(back) !== JSON.stringify(g)) errs.push('code mismatch');
+  const faceParts = eyeGroups(ras.role, ras.n);
+  if (g.mouth !== 'none' && g.body !== 'bird' && faceParts < 3) errs.push(`face parts ${faceParts}`);
   if (errs.length) {
     fail++;
     if (fail < 8) console.log(k, g.body, g.size, errs.join(', '), code);

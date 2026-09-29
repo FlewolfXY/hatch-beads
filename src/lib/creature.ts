@@ -459,34 +459,43 @@ function paintFace(w: Work, g: Genes, a: Anchor, n: number): FaceOut {
   if (L.open) openEyes.push({ x: lx, y: ly, w: L.w, h: L.h });
   if (R.open) openEyes.push({ x: rx, y: ry, w: R.w, h: R.h });
   const eyeBottom = top + eh - 1;
-  let m0 = eyeBottom + 1;
+  const eyeCells = new Set<number>();
+  for (const [dx, dy] of L.cells) eyeCells.add((ly + dy) * w.w + lx + dx);
+  for (const [dx, dy] of R.cells) eyeCells.add((ry + dy) * w.w + (R.mirror ? rx + (R.w - 1 - dx) : rx + dx));
+
+  type Cell = [number, number, number];
+  const shapes: Record<string, (m: number) => Cell[]> = {
+    beak: (m) => [[c0, m, ACC], [c1, m, ACC]],
+    smile: (m) => [[c0 - 1, m, EYE], [c1 + 1, m, EYE], [c0, m + 1, EYE], [c1, m + 1, EYE]],
+    w: (m) => [[c0 - 2, m, EYE], [c0, m, EYE], [c1, m, EYE], [c1 + 2, m, EYE], [c0 - 1, m + 1, EYE], [c1 + 1, m + 1, EYE]],
+    o: (m) => [[c0, m, EYE], [c1, m, EYE], [c0, m + 1, BLUSH], [c1, m + 1, BLUSH]],
+    tiny: (m) => [[c0, m, EYE], [c1, m, EYE]],
+  };
+  const narrower: Record<string, string[]> = { w: ['smile', 'tiny'], smile: ['tiny'], o: ['tiny'], beak: [], tiny: [] };
+  // 嘴和眼睛之间（包括斜对角）至少空一颗豆；嘴也不能贴着身体边缘
+  const fits = (cells: Cell[]) =>
+    cells.every(([x, y]) => {
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (eyeCells.has((y + dy) * w.w + x + dx)) return false;
+      if (!isBody(w.get(x, y)) && w.get(x, y) !== BLUSH) return false;
+      return [[1, 0], [-1, 0], [0, 1]].every(([ax, ay]) => w.get(x + ax, y + ay) !== EMPTY);
+    });
+  const want = a.beak ? 'beak' : g.mouth === 'w' && sz === 0 ? 'smile' : g.mouth;
   let mouthBottom = eyeBottom;
-  if (a.beak) {
-    put(c0, m0, ACC);
-    put(c1, m0, ACC);
-    mouthBottom = m0;
-  } else {
-    const mouth = g.mouth === 'w' && sz === 0 ? 'smile' : g.mouth;
-    if (mouth === 'smile') {
-      put(c0 - 1, m0, EYE);
-      put(c1 + 1, m0, EYE);
-      put(c0, m0 + 1, EYE);
-      put(c1, m0 + 1, EYE);
-      mouthBottom = m0 + 1;
-    } else if (mouth === 'w') {
-      put(c0 - 2, m0, EYE);
-      put(c0, m0, EYE);
-      put(c1, m0, EYE);
-      put(c1 + 2, m0, EYE);
-      put(c0 - 1, m0 + 1, EYE);
-      put(c1 + 1, m0 + 1, EYE);
-      mouthBottom = m0 + 1;
-    } else if (mouth === 'o') {
-      put(c0, m0, EYE);
-      put(c1, m0, EYE);
-      put(c0, m0 + 1, BLUSH);
-      put(c1, m0 + 1, BLUSH);
-      mouthBottom = m0 + 1;
+  if (want !== 'none') {
+    let chosen: Cell[] | null = null;
+    for (const kind of [want, ...narrower[want]]) {
+      for (const m of [eyeBottom + 1, eyeBottom + 2]) {
+        const cells = shapes[kind](m);
+        if (fits(cells)) {
+          chosen = cells;
+          break;
+        }
+      }
+      if (chosen) break;
+    }
+    if (chosen) {
+      for (const [x, y, r] of chosen) put(x, y, r);
+      mouthBottom = Math.max(...chosen.map(([, y]) => y));
     }
   }
   let blushL = lx - 1;
@@ -582,7 +591,7 @@ function paintPattern(w: Work, g: Genes, a: Anchor, n: number, s: number, zone: 
   }
 }
 
-function paintAcc(w: Work, g: Genes, a: Anchor, n: number, s: number, mouthBottom: number) {
+function paintAcc(w: Work, g: Genes, a: Anchor, n: number, s: number, mouthBottom: number, face: Set<number>) {
   const neck = a.neckY || mouthBottom + (g.blush ? 1 : 1) + 1;
   const { c0, c1 } = w;
   const thick = n >= 20 ? 2 : 1;
@@ -596,16 +605,23 @@ function paintAcc(w: Work, g: Genes, a: Anchor, n: number, s: number, mouthBotto
     }
     case 'bow': {
       const topY = w.topAt(c0);
-      const y0 = topY + (n >= 20 ? 1 : 0);
-      const [la] = w.rowSpan(y0 + 1);
-      const x0 = la - 1;
-      const cells = [[0, 0], [4, 0], [0, 1], [1, 1], [3, 1], [4, 1], [0, 2], [4, 2]];
-      for (const [dx, dy] of cells) w.set(x0 + dx, y0 + dy, ACC);
-      w.set(x0 + 2, y0 + 1, OUT);
-      if (n >= 20) {
-        w.set(x0 + 1, y0 + 2, ACC);
-        w.set(x0 + 3, y0 + 2, ACC);
+      const cells = [[0, 0], [4, 0], [0, 1], [1, 1], [3, 1], [4, 1], [0, 2], [4, 2], [2, 1]];
+      if (n >= 20) cells.push([1, 2], [3, 2]);
+      const spots: [number, number][] = [];
+      for (const y0 of [topY + (n >= 20 ? 1 : 0), topY - 1]) {
+        const [la, lb] = w.rowSpan(y0 + 1);
+        spots.push([la - 1, y0], [lb - 3, y0]);
       }
+      // 蝴蝶结不能压到眼睛、嘴和腮红，也要离它们空一格
+      const clear = ([x0, y0]: [number, number]) =>
+        cells.every(([dx, dy]) => {
+          for (let ey = -1; ey <= 1; ey++) for (let ex = -1; ex <= 1; ex++) if (face.has((y0 + dy + ey) * w.w + x0 + dx + ex)) return false;
+          return true;
+        });
+      const spot = spots.find(clear);
+      if (!spot) break;
+      const [x0, y0] = spot;
+      for (const [dx, dy] of cells) w.set(x0 + dx, y0 + dy, dx === 2 && dy === 1 ? OUT : ACC);
       void s;
       break;
     }
@@ -698,11 +714,11 @@ function tryRaster(g: Genes, n: number, s: number, dropTop: boolean, pool: Pool,
   const lx = w.c0 - a.k - tmpEye.w + 1;
   const mouthH = a.beak ? 1 : g.mouth === 'none' ? 0 : 2;
   const eyeBottom = a.eyeTop + Math.max(tmpEye.h, 2) - 1;
-  const zoneEst = (x: number, y: number) => y >= a.eyeTop - 1 && y <= eyeBottom + mouthH + 1 && x >= lx - 2 && x <= W - 1 - (lx - 2);
+  const zoneEst = (x: number, y: number) => y >= a.eyeTop - 1 && y <= eyeBottom + mouthH + 2 && x >= lx - 2 && x <= W - 1 - (lx - 2);
   paintPattern(w, g, a, n, s, zoneEst);
   paintRare(w, g, a, n, s, zoneEst);
   const face = paintFace(w, g, a, n);
-  paintAcc(w, g, a, n, s, face.mouthBottom);
+  paintAcc(w, g, a, n, s, face.mouthBottom, new Set(face.under.keys()));
   if (g.rare === 'glow') for (let i = 0; i < w.role.length; i++) if (w.role[i] === EYE && face.under.has(i)) w.fx[i] = FX_GLOW;
   outline(w);
 
