@@ -163,7 +163,7 @@ export default function Extract({ src, title, note: note0, points }: Props) {
         <div className="row" style={{ justifyContent: 'space-between', margin: '0 6px 10px' }}>
           <b style={{ fontSize: 14 }}>豆盘</b>
           <span className="sub" style={{ fontSize: 12 }}>
-            {phase === 'scan' ? '正在读照片里的颜色…' : phase === 'done' ? '点一颗可以拿掉它' : '颜色正在跳进豆盘'}
+            {phase === 'scan' ? '正在从照片里挑颜色…' : phase === 'done' ? '不喜欢哪颗，点一下拿掉' : '颜色正在跳进豆盘'}
           </span>
         </div>
         <div className="tray-row">
@@ -202,9 +202,9 @@ export default function Extract({ src, title, note: note0, points }: Props) {
         <>
           <div className="section-head" style={{ marginTop: 22 }}>
             <h2 className="h2" style={{ fontSize: 16 }}>
-              照片告诉我…
+              从照片里读到了
             </h2>
-            <span className="sub">这些线索会写进基因</span>
+            <span className="sub">这些会写进崽的基因</span>
           </div>
           <div className="clues">
             {clues.map((c, i) => (

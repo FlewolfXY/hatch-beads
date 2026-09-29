@@ -20,7 +20,7 @@ export default function SheetView({ id }: { id: string }) {
   const [ring, setRing] = useState(false);
   const [mine, setMine] = useState(app.box.mode === 'mine');
   const [tab, setTab] = useState<'sheet' | 'preview'>('sheet');
-  const [style, setStyle] = useState<BeadStyle>('hole');
+  const [style, setStyle] = useState<BeadStyle>('full');
   const cvRef = useRef<HTMLCanvasElement>(null);
 
   const minePool = useMemo(() => poolOf({ mode: 'mine', mine: app.box.mine }), [app.box.mine]);
@@ -71,8 +71,8 @@ export default function SheetView({ id }: { id: string }) {
             {(
               [
                 ['bead', '在豆板上'],
-                ['hole', '留孔烫'],
-                ['full', '全熔烫'],
+                ['full', '平烫'],
+                ['hole', '轻烫留孔'],
               ] as [BeadStyle, string][]
             ).map(([k, t]) => (
               <button key={k} className={style === k ? 'on' : ''} onClick={() => setStyle(k)}>

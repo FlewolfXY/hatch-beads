@@ -196,11 +196,11 @@ export function readClues(p: PhotoInfo): Clue[] {
 /* ---------------- 配色 ---------------- */
 
 export type Flavor = 'steady' | 'cute' | 'wild';
-export const FLAVOR_LABEL: Record<Flavor, string> = { steady: '稳', cute: '萌', wild: '野' };
+export const FLAVOR_LABEL: Record<Flavor, string> = { steady: '原图色', cute: '软萌款', wild: '隐藏款' };
 export const FLAVOR_DESC: Record<Flavor, string> = {
-  steady: '最像照片给人的感觉',
-  cute: '往可爱里多走了一步',
-  wild: '带一点点意外',
+  steady: '最像你拍下的那一刻',
+  cute: '可爱值又加了一点',
+  wild: '拆开才知道是谁',
 };
 
 function liftMain(i: number, pool: Pool): number {

@@ -58,7 +58,7 @@ button {
   max-width: 440px;
   margin: 0 auto;
   min-height: 100dvh;
-  padding: 0 18px 132px;
+  padding: 0 18px 28px;
   position: relative;
 }
 
@@ -289,13 +289,13 @@ button {
 }
 
 .bottom-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
+  position: sticky;
   bottom: 0;
   z-index: 20;
-  padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
-  background: linear-gradient(to top, rgba(246, 240, 230, 0.98) 55%, rgba(246, 240, 230, 0));
+  margin: 20px -18px 0;
+  padding: 26px 18px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(246, 240, 230, 0.97) 62%, rgba(246, 240, 230, 0));
+  pointer-events: none;
 }
 
 .bottom-bar .inner {
@@ -303,6 +303,17 @@ button {
   margin: 0 auto;
   display: flex;
   gap: 10px;
+  pointer-events: auto;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.inline-actions > * {
+  flex: 1;
 }
 
 .bottom-bar .inner > * {
@@ -335,6 +346,7 @@ button {
 }
 
 /* ---------- 豆（DOM 版） ---------- */
+/* 拼豆是带孔的短圆柱：顶面是平的圆环，下沿露出一点侧面，孔里能看到内壁和豆板 */
 .bead {
   --c: #ef8a3c;
   width: 26px;
@@ -342,18 +354,28 @@ button {
   border-radius: 50%;
   position: relative;
   flex: none;
-  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.55) 0 12%, transparent 13%),
-    radial-gradient(circle at 36% 32%, color-mix(in srgb, var(--c) 70%, white) 0%, var(--c) 48%, color-mix(in srgb, var(--c) 82%, black) 100%);
-  box-shadow: 0 2px 3px rgba(70, 45, 25, 0.18);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 80%, white) 0%, var(--c) 50%, color-mix(in srgb, var(--c) 94%, black) 100%);
+  box-shadow: 0 1.5px 0 color-mix(in srgb, var(--c) 66%, black), 0 3px 5px rgba(70, 45, 25, 0.16);
 }
 
 .bead::after {
   content: '';
   position: absolute;
-  inset: 34%;
+  inset: 27%;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--c) 58%, black);
-  opacity: 0.55;
+  background: radial-gradient(circle at 50% 64%, rgba(246, 240, 230, 0.8) 0 30%, transparent 33%),
+    linear-gradient(180deg, color-mix(in srgb, var(--c) 42%, black), color-mix(in srgb, var(--c) 76%, black));
+}
+
+.bead::before {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.55);
+  border-left-color: rgba(255, 255, 255, 0.2);
+  transform: rotate(-18deg);
 }
 
 /* ---------- 首页 ---------- */
@@ -780,15 +802,19 @@ button {
   color: var(--muted);
 }
 
-.flavor b {
-  width: 24px;
+.flavor {
+  flex-wrap: wrap;
+}
+
+.flavor-pill {
+  display: inline-flex;
+  align-items: center;
   height: 24px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  background: var(--ink);
-  color: #fff;
-  font-size: 13px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
 }
 
 .hcard .nm {
@@ -1094,7 +1120,10 @@ button {
   padding: 20px;
   display: flex;
   justify-content: center;
-  background: linear-gradient(160deg, #f3ece2, #e8dfd2);
+  background-color: #efe8dc;
+  background-image: repeating-linear-gradient(45deg, rgba(110, 90, 70, 0.045) 0 1.5px, transparent 1.5px 5px),
+    repeating-linear-gradient(-45deg, rgba(110, 90, 70, 0.045) 0 1.5px, transparent 1.5px 5px),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.35), rgba(0, 0, 0, 0.03));
   box-shadow: inset 0 2px 10px rgba(110, 80, 50, 0.1);
 }
 

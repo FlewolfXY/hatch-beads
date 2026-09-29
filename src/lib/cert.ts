@@ -321,7 +321,7 @@ export async function drawTriptych(canvas: HTMLCanvasElement, c: Creature, ras: 
     ctx.fillStyle = '#EFE7DC';
     roundRect(ctx, rx, by, bw, bh, 32);
     ctx.fill();
-    drawRaster(ctx, ras, { px, x0: rx + (bw - gw) / 2, y0: gy, style: 'hole' });
+    drawRaster(ctx, ras, { px, x0: rx + (bw - gw) / 2, y0: gy, style: 'full' });
     rightLabel = '烫好以后 · 渲染图';
   }
   const pill = (text: string, cx: number) => {

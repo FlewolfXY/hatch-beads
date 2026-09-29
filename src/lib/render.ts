@@ -12,50 +12,83 @@ const shade = (hex: string, t: number) => {
 
 const sprites = new Map<string, HTMLCanvasElement>();
 
+const DPR = () => Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+
+/** 拼豆是短圆柱：俯视是一个带孔的圆环，侧面露出一点厚度，孔里能看到豆板的钉子 */
 export function beadSprite(hex: string, px: number, glass = false): HTMLCanvasElement {
-  const size = Math.max(2, Math.round(px));
-  const key = `${hex}|${size}|${glass ? 1 : 0}`;
+  const S = Math.max(2, Math.round(px * DPR()));
+  const key = `${hex}|${S}|${glass ? 1 : 0}`;
   const hit = sprites.get(key);
   if (hit) return hit;
   const c = document.createElement('canvas');
-  c.width = c.height = size;
+  c.width = c.height = S;
   const ctx = c.getContext('2d')!;
-  const m = size / 2;
-  const r = size * 0.46;
-  if (size < 7) {
+  const m = S / 2;
+  const R = S * 0.47;
+  // 2.6mm 小豆的孔径大约是直径的一半
+  const H = S * 0.23;
+  const circle = (x: number, y: number, r: number) => {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+  };
+  if (S < 12) {
+    ctx.fillStyle = shade(hex, -0.25);
+    circle(m, m + S * 0.05, R);
+    ctx.fill();
     ctx.fillStyle = hex;
-    ctx.beginPath();
-    ctx.arc(m, m, r, 0, Math.PI * 2);
+    circle(m, m - S * 0.01, R * 0.97);
     ctx.fill();
+    if (S >= 6) {
+      ctx.fillStyle = shade(hex, -0.24);
+      circle(m, m, S * 0.22);
+      ctx.fill();
+      if (S >= 9) {
+        ctx.fillStyle = 'rgba(244,238,229,0.55)';
+        circle(m, m + S * 0.04, S * 0.1);
+        ctx.fill();
+      }
+    }
   } else {
-    ctx.globalAlpha = glass ? 0.75 : 1;
-    ctx.fillStyle = 'rgba(70,45,25,0.16)';
-    ctx.beginPath();
-    ctx.arc(m, m + size * 0.04, r, 0, Math.PI * 2);
+    ctx.globalAlpha = glass ? 0.72 : 1;
+    // 侧面（圆柱的厚度）
+    ctx.fillStyle = shade(hex, -0.3);
+    circle(m, m + S * 0.055, R);
     ctx.fill();
-    const g = ctx.createRadialGradient(size * 0.36, size * 0.32, 0, m, m, r * 1.15);
-    g.addColorStop(0, shade(hex, 0.3));
-    g.addColorStop(0.5, hex);
-    g.addColorStop(1, shade(hex, -0.16));
+    // 顶面
+    const g = ctx.createLinearGradient(0, m - R, 0, m + R);
+    g.addColorStop(0, shade(hex, 0.16));
+    g.addColorStop(0.55, hex);
+    g.addColorStop(1, shade(hex, -0.06));
     ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(m, m, r, 0, Math.PI * 2);
+    circle(m, m - S * 0.012, R * 0.985);
     ctx.fill();
-    // 孔
-    const hr = size * 0.15;
-    const hg = ctx.createRadialGradient(m - hr * 0.3, m - hr * 0.3, 0, m, m, hr);
-    hg.addColorStop(0, shade(hex, -0.42));
+    // 孔的内壁
+    const hg = ctx.createLinearGradient(0, m - H, 0, m + H);
+    hg.addColorStop(0, shade(hex, -0.55));
     hg.addColorStop(1, shade(hex, -0.22));
     ctx.fillStyle = hg;
-    ctx.beginPath();
-    ctx.arc(m, m, hr, 0, Math.PI * 2);
+    circle(m, m, H);
     ctx.fill();
-    // 高光
-    ctx.globalAlpha = glass ? 0.9 : 0.55;
-    ctx.fillStyle = '#fff';
+    // 孔底的钉子
+    if (S >= 18) {
+      ctx.fillStyle = 'rgba(244,238,229,0.92)';
+      circle(m, m + H * 0.22, H * 0.55);
+      ctx.fill();
+    }
+    // 孔沿被照亮的一圈
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = Math.max(1, S * 0.03);
     ctx.beginPath();
-    ctx.ellipse(size * 0.33, size * 0.27, size * 0.12, size * 0.07, -0.6, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(m, m, H + S * 0.015, Math.PI * 0.05, Math.PI * 0.7);
+    ctx.stroke();
+    // 顶面左上的柔光
+    ctx.globalAlpha = glass ? 0.85 : 0.42;
+    ctx.strokeStyle = '#fff';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = S * 0.075;
+    ctx.beginPath();
+    ctx.arc(m, m - S * 0.012, (R + H) / 2, Math.PI * 1.08, Math.PI * 1.45);
+    ctx.stroke();
     ctx.globalAlpha = 1;
   }
   sprites.set(key, c);
@@ -162,59 +195,158 @@ export function drawRaster(ctx: CanvasRenderingContext2D, ras: Raster, o: DrawOp
   ctx.restore();
 }
 
+let noise: HTMLCanvasElement | null = null;
+function noiseTile() {
+  if (noise) return noise;
+  noise = document.createElement('canvas');
+  noise.width = noise.height = 96;
+  const c = noise.getContext('2d')!;
+  const img = c.createImageData(96, 96);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = Math.random() < 0.5 ? 0 : 255;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = Math.random() * 255;
+  }
+  c.putImageData(img, 0, 0);
+  return noise;
+}
+
+function cellPath(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, [tl, tr, br, bl]: number[]) {
+  c.beginPath();
+  c.moveTo(x + tl, y);
+  c.lineTo(x + w - tr, y);
+  if (tr) c.quadraticCurveTo(x + w, y, x + w, y + tr);
+  c.lineTo(x + w, y + h - br);
+  if (br) c.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+  c.lineTo(x + bl, y + h);
+  if (bl) c.quadraticCurveTo(x, y + h, x, y + h - bl);
+  c.lineTo(x, y + tl);
+  if (tl) c.quadraticCurveTo(x, y, x + tl, y);
+  c.closePath();
+}
+
+/**
+ * 烫好的样子。
+ * 全熔：豆子融成一整片平整的像素，外轮廓只在凸角处稍微圆润，看得到薄片的厚度。
+ * 留孔（半熔）：每颗豆被压成圆角小方块，彼此贴住，中间留着小孔。
+ */
 function drawFused(ctx: CanvasRenderingContext2D, ras: Raster, grid: Int16Array, o: DrawOpts) {
   const { px, x0 = 0, y0 = 0, style } = o;
   const n = ras.n;
+  const dpr = DPR();
+  const pad = px * 1.5;
+  const size = n * px + pad * 2;
   const off = document.createElement('canvas');
-  off.width = off.height = Math.ceil(n * px + px * 2);
+  off.width = off.height = Math.ceil(size * dpr);
   const c = off.getContext('2d')!;
-  const pad = px;
-  const rr = style === 'full' ? px * 0.62 : px * 0.55;
-  for (let i = 0; i < n * n; i++) {
-    const b = grid[i];
-    if (b < 0) continue;
-    const x = pad + ((i % n) + 0.5) * px,
-      y = pad + (((i / n) | 0) + 0.5) * px;
-    c.fillStyle = BEADS[b].hex;
-    c.beginPath();
-    c.arc(x, y, rr, 0, Math.PI * 2);
-    c.fill();
-  }
-  // 熔化后的细节
-  for (let i = 0; i < n * n; i++) {
-    const b = grid[i];
-    if (b < 0) continue;
-    const x = pad + ((i % n) + 0.5) * px,
-      y = pad + (((i / n) | 0) + 0.5) * px;
-    if (style === 'hole') {
-      c.fillStyle = shade(BEADS[b].hex, -0.3);
-      c.beginPath();
-      c.arc(x, y, px * 0.14, 0, Math.PI * 2);
-      c.fill();
-      c.fillStyle = 'rgba(255,255,255,0.18)';
-      c.beginPath();
-      c.arc(x - px * 0.18, y - px * 0.2, px * 0.12, 0, Math.PI * 2);
-      c.fill();
-    } else {
-      c.fillStyle = 'rgba(0,0,0,0.05)';
-      c.beginPath();
-      c.arc(x, y, px * 0.06, 0, Math.PI * 2);
-      c.fill();
+  c.scale(dpr, dpr);
+  const has = (x: number, y: number) => x >= 0 && y >= 0 && x < n && y < n && grid[y * n + x] >= 0;
+  const full = style === 'full';
+  const T = px * (full ? 0.2 : 0.16);
+  const r = px * (full ? 0.38 : 0.34);
+  const seam = 0.6 / dpr;
+  const jitter = (i: number) => (((i * 2654435761) >>> 0) % 7) / 7 - 0.5;
+
+  const each = (fn: (x: number, y: number, hex: string, i: number) => void) => {
+    for (let i = 0; i < n * n; i++) {
+      const b = grid[i];
+      if (b < 0) continue;
+      fn(i % n, (i / n) | 0, BEADS[b].hex, i);
     }
+  };
+  const shape = (cx: number, cy: number, dy: number) => {
+    const x = pad + cx * px,
+      y = pad + cy * px + dy;
+    if (full) {
+      const L = has(cx - 1, cy),
+        R = has(cx + 1, cy),
+        U = has(cx, cy - 1),
+        D = has(cx, cy + 1);
+      cellPath(c, x, y, px + (R ? seam : 0), px + (D ? seam : 0), [!L && !U ? r : 0, !R && !U ? r : 0, !R && !D ? r : 0, !L && !D ? r : 0]);
+    } else {
+      const g = px * 0.035;
+      cellPath(c, x + g, y + g, px - g * 2, px - g * 2, [r, r, r, r]);
+    }
+  };
+
+  // 厚度（侧面）
+  each((x, y, hex) => {
+    c.fillStyle = shade(hex, -0.34);
+    shape(x, y, T);
+    c.fill();
+  });
+  // 顶面
+  each((x, y, hex, i) => {
+    c.fillStyle = shade(hex, jitter(i) * 0.05);
+    shape(x, y, 0);
+    c.fill();
+  });
+  if (!full) {
+    // 半熔：孔被压小了，只剩一个颜色略深的小点
+    each((x, y, hex) => {
+      const cx = pad + (x + 0.5) * px,
+        cy = pad + (y + 0.5) * px;
+      c.fillStyle = shade(hex, -0.26);
+      c.beginPath();
+      c.arc(cx, cy, px * 0.11, 0, Math.PI * 2);
+      c.fill();
+    });
+  } else {
+    // 全熔后豆与豆之间只剩极淡的接缝
+    c.strokeStyle = 'rgba(40,25,15,0.05)';
+    c.lineWidth = 0.6;
+    c.beginPath();
+    each((x, y) => {
+      if (has(x + 1, y)) {
+        c.moveTo(pad + (x + 1) * px, pad + y * px + px * 0.12);
+        c.lineTo(pad + (x + 1) * px, pad + y * px + px * 0.88);
+      }
+      if (has(x, y + 1)) {
+        c.moveTo(pad + x * px + px * 0.12, pad + (y + 1) * px);
+        c.lineTo(pad + x * px + px * 0.88, pad + (y + 1) * px);
+      }
+    });
+    c.stroke();
   }
-  // 整体塑料光泽
+  // 薄片顶面的边缘受光
+  c.strokeStyle = 'rgba(255,255,255,0.38)';
+  c.lineWidth = Math.max(0.8, px * 0.07);
+  c.lineCap = 'round';
+  c.beginPath();
+  each((x, y) => {
+    const X = pad + x * px,
+      Y = pad + y * px,
+      e = px * (full ? 0.2 : 0.3),
+      k = c.lineWidth / 2 + px * 0.03;
+    if (full ? !has(x, y - 1) : true) {
+      c.moveTo(X + e, Y + k);
+      c.lineTo(X + px - e, Y + k);
+    }
+    if (full ? !has(x - 1, y) : false) {
+      c.moveTo(X + k, Y + e);
+      c.lineTo(X + k, Y + px - e);
+    }
+  });
+  c.stroke();
+  // 哑光塑料的细颗粒和柔光
   c.globalCompositeOperation = 'source-atop';
-  const g = c.createLinearGradient(0, 0, off.width, off.height);
-  g.addColorStop(0, 'rgba(255,255,255,0.22)');
-  g.addColorStop(0.45, 'rgba(255,255,255,0)');
-  g.addColorStop(1, 'rgba(0,0,0,0.08)');
+  c.globalAlpha = 0.07;
+  c.fillStyle = c.createPattern(noiseTile(), 'repeat')!;
+  c.fillRect(0, 0, size, size);
+  c.globalAlpha = 1;
+  const g = c.createLinearGradient(0, 0, size, size);
+  g.addColorStop(0, 'rgba(255,255,255,0.16)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.02)');
+  g.addColorStop(1, 'rgba(0,0,0,0.05)');
   c.fillStyle = g;
-  c.fillRect(0, 0, off.width, off.height);
+  c.fillRect(0, 0, size, size);
+  c.globalCompositeOperation = 'source-over';
+
   ctx.save();
-  ctx.shadowColor = 'rgba(80,50,30,0.22)';
-  ctx.shadowBlur = px * 0.9;
-  ctx.shadowOffsetY = px * 0.35;
-  ctx.drawImage(off, x0 - pad, y0 - pad);
+  ctx.shadowColor = 'rgba(80,50,30,0.25)';
+  ctx.shadowBlur = px * 1.2;
+  ctx.shadowOffsetY = px * 0.45;
+  ctx.drawImage(off, x0 - pad, y0 - pad, size, size);
   ctx.restore();
 }
 

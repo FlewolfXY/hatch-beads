@@ -16,11 +16,12 @@ import {
   tags,
 } from '../lib/genes';
 import { nameFor } from '../lib/names';
-import { BEADS } from '../lib/palette';
+import { BEADS, derive, STANDARD } from '../lib/palette';
 import { beadSprite, drawEgg, drawRaster, EggRaster, makeEgg, setupCanvas } from '../lib/render';
 import { hashNums, mulberry32, uid } from '../lib/rng';
 import { chime, crack, tick } from '../lib/sound';
 import { Creature } from '../lib/store';
+import { tintOf } from './Detail';
 import { Steps } from './Extract';
 import { TopBar } from './Home';
 import { Pin, Shuffle, Sparkle } from './icons';
@@ -35,14 +36,14 @@ interface Props {
 }
 
 const BODY_HINT: Record<Body, string> = {
-  mochi: '圆滚滚的，捏起来软软的',
-  bean: '小小一颗，在里面翻身',
-  cat: '好像听见了“咪”',
-  bird: '里面在啾啾叫',
-  jelly: '晃起来像一汪水',
-  ghost: '摸起来有点凉凉的',
-  mush: '闻起来像雨后的草地',
-  dino: '硬硬的，好像有刺',
+  mochi: '软乎乎的，像刚出锅的麻薯',
+  bean: '小小一颗，在里面翻了个身',
+  cat: '里面好像传来一声“咪”',
+  bird: '听见了啾啾啾',
+  jelly: '晃起来咕噜咕噜的',
+  ghost: '摸上去凉凉的，有点神秘',
+  mush: '闻起来像下过雨的草地',
+  dino: '硬硬的，好像长了小刺',
 };
 
 interface Item {
@@ -149,7 +150,7 @@ export default function Hatch({ photo, size, round, base, pins, breed: br }: Pro
         {br ? `${br.a.name} × ${br.bName}` : base ? `从「${base.name}」再孵一窝` : round === 0 ? '同一窝，三只崽' : `第 ${round + 1} 窝`}
       </h1>
       <p className="lead" style={{ margin: '0 2px 14px', fontSize: 14 }}>
-        {br ? '两只崽的基因混在一起了。偶尔会冒出一颗你们俩都没有的豆。' : '颜色相同，长相不同。长按蛋壳，或者点下面一起孵。'}
+        {br ? '两只崽的颜色混在一起了，说不定会冒出一颗你们俩都没有的豆。' : '同一组颜色，三种长相。按住蛋壳不放，它就会破壳。'}
       </p>
       {pinned.length > 0 && (
         <div className="pinned-bar">
@@ -168,21 +169,20 @@ export default function Hatch({ photo, size, round, base, pins, breed: br }: Pro
           <HatchCard key={it.c.id} item={it} index={i} trigger={trigger[i]} hatched={hatched[i]} born={initial[i]} onDone={() => onDone(i)} onOpen={() => open(i)} />
         ))}
       </div>
-      <div className="bottom-bar">
-        <div className="inner">
-          {all ? (
-            <button className="btn btn-ghost" onClick={again}>
-              <Shuffle size={18} />
-              {pinned.length ? '锁住的不变，再孵一窝' : '再孵一窝'}
-            </button>
-          ) : (
-            <button className="btn btn-primary" onClick={hatchAll}>
-              <Sparkle size={18} />
-              {hatched.some(Boolean) ? '剩下的也孵了' : '一起孵'}
-            </button>
-          )}
-        </div>
+      <div className="inline-actions">
+        {all ? (
+          <button className="btn btn-ghost" onClick={again}>
+            <Shuffle size={18} />
+            {pinned.length ? '锁住的不变，再孵一窝' : '不满意？再孵一窝'}
+          </button>
+        ) : (
+          <button className="btn btn-primary" onClick={hatchAll}>
+            <Sparkle size={18} />
+            {hatched.some(Boolean) ? '剩下的也一起孵' : '三颗一起孵'}
+          </button>
+        )}
       </div>
+      {all && <p className="sub center" style={{ marginTop: 10 }}>点一只崽，看看它的基因和图纸</p>}
     </div>
   );
 }
@@ -391,8 +391,10 @@ function HatchCard({
       </div>
       <div className="info">
         <div className="flavor">
-          <b style={item.flavor ? undefined : { background: '#C2185B' }}>{item.flavor ? FLAVOR_LABEL[item.flavor] : '混'}</b>
-          {item.flavor ? FLAVOR_DESC[item.flavor] : '配种的一窝'}
+          <span className="flavor-pill" style={{ background: tintOf(BEADS[g.colors.main].hex, 0.72), color: BEADS[derive(g.colors.main, STANDARD).out].hex }}>
+            {item.flavor ? FLAVOR_LABEL[item.flavor] : '混血款'}
+          </span>
+          {item.flavor ? FLAVOR_DESC[item.flavor] : '你俩的颜色混在一起'}
         </div>
         {hatched ? (
           <>
@@ -413,13 +415,13 @@ function HatchCard({
               </div>
             )}
             <div className="stats">
-              {item.ras.total} 颗 · {item.ras.colors.length} 色 · 点开看看 →
+              {item.ras.total} 颗豆 · {item.ras.colors.length} 种颜色
             </div>
           </>
         ) : (
           <>
-            <p className="hint">晃一晃：{BODY_HINT[g.body]}</p>
-            <div className="stats">长按蛋壳孵化</div>
+            <p className="hint">摇一摇：{BODY_HINT[g.body]}</p>
+            <div className="stats">按住蛋壳，等它破壳</div>
           </>
         )}
       </div>

@@ -132,7 +132,7 @@ export default function Home() {
       </div>
 
       <div className="section-head">
-        <h2 className="h2">或者先用这些试试</h2>
+        <h2 className="h2">手边没照片？先拿这些试试</h2>
       </div>
       <div className="samples">
         {SAMPLES.map((s) => (
