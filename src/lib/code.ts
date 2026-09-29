@@ -51,7 +51,7 @@ export function encode(g: Genes): string {
 
 export function decode(input: string): Genes | null {
   let s = input.toUpperCase().replace(/[^0-9A-Z]/g, '');
-  if (s.startsWith('HD')) s = s.slice(2);
+  if (s.length === 18 && s.startsWith('HD')) s = s.slice(2);
   s = s.replace(/[IL]/g, '1').replace(/O/g, '0').replace(/U/g, 'V');
   if (s.length !== 16) return null;
   const bits: number[] = [];

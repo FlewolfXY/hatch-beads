@@ -203,7 +203,7 @@ function NestItem({ id }: { id: string }) {
         <BeadView ras={ras} size={88} style={c.madeAt ? 'full' : 'bead'} pad={c.madeAt ? 6 : 0} />
       </div>
       <div className="nm">{c.name}</div>
-      <div className="st">{c.madeAt ? '在你手里' : `待拼 · ${ras.total} 颗`}</div>
+      <div className="st">{c.madeAt ? '在你手里' : c.from ? `来自${c.from}` : `待拼 · ${ras.total} 颗`}</div>
       <div className="strip" style={{ justifyContent: 'center' }}>
         {[c.genes.colors.main, c.genes.colors.pat, c.genes.colors.acc].map((b, i) => (
           <i key={i} style={{ background: BEADS[b].hex, width: 8, height: 8 }} />

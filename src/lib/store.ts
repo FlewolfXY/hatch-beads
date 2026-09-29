@@ -23,6 +23,8 @@ export interface Creature {
   madePhoto?: string;
   /** 出生证上要不要贴原照片，默认贴 */
   certPhoto?: boolean;
+  /** 从朋友那里收下的崽，记着是谁的 */
+  from?: string;
 }
 
 const NEST = 'hatch-beads:nest:v1';

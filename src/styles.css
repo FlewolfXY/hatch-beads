@@ -1286,6 +1286,14 @@ button {
   box-shadow: var(--shadow-lg);
 }
 
+.share-opts {
+  margin-bottom: 12px;
+}
+
+.field .seg button {
+  padding: 6px 4px;
+}
+
 .cert-form {
   display: grid;
   gap: 4px;

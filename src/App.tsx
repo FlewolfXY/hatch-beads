@@ -11,9 +11,21 @@ import CertView from './components/CertView';
 import Breed from './components/Breed';
 import BoxPicker from './components/BoxPicker';
 import Gallery from './components/Gallery';
+import Invite from './components/Invite';
+import { initialShare } from './lib/share';
 
 export default function App() {
-  const [stack, setStack] = useState<Screen[]>(() => [location.hash === '#gallery' ? { k: 'gallery' } : { k: 'home' }]);
+  const [stack, setStack] = useState<Screen[]>(() => {
+    if (location.hash === '#gallery') return [{ k: 'gallery' }];
+    return initialShare ? [{ k: 'home' }, { k: 'invite', ...initialShare }] : [{ k: 'home' }];
+  });
+
+  useEffect(() => {
+    if (!initialShare || history.state?.d === 1) return;
+    // 扫码进来：把链接参数从地址栏收起来，首页垫在下面，返回时留在站内
+    history.replaceState(null, '', location.pathname + location.search);
+    history.pushState({ d: 1 }, '');
+  }, []);
   const [nest, setNest] = useState<Creature[]>(loadNest);
   const [drafts, setDrafts] = useState<Record<string, Creature>>({});
   const [box, setBoxState] = useState<BoxSetting>(loadBox);
@@ -131,7 +143,10 @@ export default function App() {
       view = <CertView key={key} id={screen.id} />;
       break;
     case 'breed':
-      view = <Breed key={key} aId={screen.aId} code={screen.code} />;
+      view = <Breed key={key} aId={screen.aId} code={screen.code} name={screen.name} owner={screen.owner} />;
+      break;
+    case 'invite':
+      view = <Invite key={key} code={screen.code} name={screen.name} owner={screen.owner} />;
       break;
     case 'gallery':
       view = <Gallery key={key} />;

@@ -4,6 +4,8 @@ import { downloadCanvas, drawCert, drawTriptych } from '../lib/cert';
 import { rasterize } from '../lib/creature';
 import { fileToDataURL, loadImage, thumb } from '../lib/extract';
 import { chime } from '../lib/sound';
+import { encode } from '../lib/code';
+import { isLocalHost, loadNick, saveNick, shareUrl } from '../lib/share';
 import { TopBar } from './Home';
 import { Camera, Download, Image } from './icons';
 
@@ -16,7 +18,12 @@ export default function CertView({ id }: { id: string }) {
   const [tab, setTab] = useState<'cert' | 'tri'>('cert');
   const [note, setNote] = useState(c.note ?? '');
   const [title, setTitle] = useState(c.photo?.title ?? '');
+  const [channel, setChannel] = useState<'xhs' | 'wx'>('xhs');
+  const [look, setLook] = useState<'full' | 'bead'>('full');
+  const [nick, setNick] = useState(loadNick);
   const showPhoto = c.certPhoto ?? true;
+  const local = isLocalHost();
+  const link = channel === 'wx' ? shareUrl({ code: encode(c.genes), name: c.name, owner: nick.trim() || undefined }) : undefined;
   const draft = useMemo(
     () => ({ ...c, note: note.trim() || undefined, photo: c.photo ? { ...c.photo, title: title.trim() || c.photo.title } : undefined }),
     [c, note, title],
@@ -24,11 +31,11 @@ export default function CertView({ id }: { id: string }) {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (tab === 'cert' && certRef.current) void drawCert(certRef.current, draft, ras, { photo: showPhoto });
+      if (tab === 'cert' && certRef.current) void drawCert(certRef.current, draft, ras, { photo: showPhoto, look, qr: link, owner: nick.trim() || undefined });
       if (tab === 'tri' && triRef.current) void drawTriptych(triRef.current, draft, ras);
     }, 60);
     return () => clearTimeout(t);
-  }, [draft, ras, tab, showPhoto]);
+  }, [draft, ras, tab, showPhoto, look, link, nick]);
 
   const saveText = () => {
     if ((c.note ?? '') !== note.trim() || (c.photo && c.photo.title !== (title.trim() || c.photo.title))) app.put(draft);
@@ -52,8 +59,8 @@ export default function CertView({ id }: { id: string }) {
 
   const save = () => {
     const cv = tab === 'cert' ? certRef.current : triRef.current;
-    if (cv) downloadCanvas(cv, `孵豆-${c.name}-${tab === 'cert' ? '出生证' : '对色卡'}.png`);
-    app.toast('已保存');
+    if (cv) downloadCanvas(cv, `孵豆-${c.name}-${tab === 'cert' ? (channel === 'wx' ? '出生证-微信' : '出生证-小红书') : '对色卡'}.png`);
+    app.toast(tab === 'cert' && channel === 'xhs' ? '已保存，发笔记时记得把豆码也写进正文' : '已保存');
   };
 
   return (
@@ -67,10 +74,56 @@ export default function CertView({ id }: { id: string }) {
           对色卡
         </button>
       </div>
+      {tab === 'cert' && (
+        <div className="share-opts">
+          <div className="seg">
+            <button className={channel === 'xhs' ? 'on' : ''} onClick={() => setChannel('xhs')}>
+              发小红书
+              <small>印豆码，不放二维码</small>
+            </button>
+            <button className={channel === 'wx' ? 'on' : ''} onClick={() => setChannel('wx')}>
+              发给微信好友
+              <small>带二维码，扫码配种</small>
+            </button>
+          </div>
+        </div>
+      )}
       {tab === 'cert' ? <canvas ref={certRef} className="cert-canvas" /> : <canvas ref={triRef} className="cert-canvas" />}
 
       {tab === 'cert' && (
         <>
+          <p className="sub" style={{ marginTop: 10, lineHeight: 1.7 }}>
+            {channel === 'xhs'
+              ? '小红书笔记里放二维码容易被当成站外导流，所以这一版只印豆码。看到的人把豆码复制进孵豆，就能和你的崽配一窝。'
+              : local
+                ? '现在是本地预览的网址，别人扫了打不开。部署到网上以后再保存这一版。'
+                : '朋友长按识别二维码，会直接打开和这只崽配种的页面。二维码里只有豆码和名字，没有照片。'}
+          </p>
+          <div className="card cert-form" style={{ marginTop: 12 }}>
+            <div className="field">
+              <span className="k">样子</span>
+              <div className="seg" style={{ flex: 1 }}>
+                <button className={look === 'full' ? 'on' : ''} onClick={() => setLook('full')} disabled={!!c.madeAt}>
+                  烫好的
+                </button>
+                <button className={look === 'bead' ? 'on' : ''} onClick={() => setLook('bead')} disabled={!!c.madeAt}>
+                  豆板上的
+                </button>
+              </div>
+            </div>
+            {channel === 'wx' && (
+              <label className="field">
+                <span className="k">昵称</span>
+                <input
+                  value={nick}
+                  maxLength={8}
+                  placeholder="印在二维码旁边，可以不填"
+                  onChange={(e) => setNick(e.target.value)}
+                  onBlur={() => saveNick(nick)}
+                />
+              </label>
+            )}
+          </div>
           <div className="section-head" style={{ marginTop: 20 }}>
             <h2 className="h2" style={{ fontSize: 16 }}>
               出生证上写什么
@@ -141,7 +194,7 @@ export default function CertView({ id }: { id: string }) {
           </button>
           <button className="btn btn-primary" onClick={save}>
             <Download size={18} />
-            保存{tab === 'cert' ? '出生证' : '对色卡'}
+            {tab === 'cert' ? (channel === 'wx' ? '保存微信版' : '保存小红书版') : '保存对色卡'}
           </button>
         </div>
       </div>

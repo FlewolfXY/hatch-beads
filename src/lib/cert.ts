@@ -3,6 +3,7 @@ import { rasterize, Raster } from './creature';
 import { tags } from './genes';
 import { sourceLabel, sourceLabels } from './names';
 import { BEADS, L, STANDARD } from './palette';
+import { qrMatrix } from './share';
 import { beadSprite, drawBoard, drawRaster, roundRect } from './render';
 import { FONT, MONO } from './sheet';
 import { Creature } from './store';
@@ -76,8 +77,69 @@ function corners(ctx: CanvasRenderingContext2D, c: Creature, W: number, H: numbe
     shape.forEach(([x, y], i) => ctx.drawImage(beadSprite(BEADS[cols[i % cols.length]].hex, px), ox + x * px * fx, oy + y * px * fy, px, px));
   put(58, 58, 1, 1);
   put(W - 58 - px, 58, -1, 1);
-  put(58, H - 58 - px, 1, -1);
-  put(W - 58 - px, H - 58 - px, -1, -1);
+  void H;
+}
+
+/** 还没拼：一个灰色虚线的“待出生”小章 */
+function pendingStamp(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(-0.2);
+  ctx.strokeStyle = 'rgba(138,127,118,0.7)';
+  ctx.fillStyle = 'rgba(138,127,118,0.85)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([8, 7]);
+  ctx.beginPath();
+  ctx.arc(0, 0, 70, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.textAlign = 'center';
+  ctx.font = `800 32px ${FONT}`;
+  ctx.fillText('待出生', 0, 4);
+  ctx.font = `600 14px ${FONT}`;
+  ctx.fillText('烫好预览', 0, 32);
+  ctx.restore();
+}
+
+/** 二维码：定位角画成圆角框，其余的点画成圆角小方块，像烫好的豆子 */
+function drawQR(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number) {
+  const qr = qrMatrix(text);
+  const n = qr.size;
+  const pad = 10;
+  const m = (size - pad * 2) / n;
+  ctx.save();
+  ctx.fillStyle = '#FFFFFF';
+  roundRect(ctx, x, y, size, size, 18);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(43,35,32,0.12)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  const ox = x + pad,
+    oy = y + pad;
+  ctx.fillStyle = INK;
+  const finder = (fx: number, fy: number) => fx < 7 && fy < 7;
+  const isFinder = (i: number, j: number) => finder(i, j) || finder(n - 1 - i, j) || finder(i, n - 1 - j);
+  for (let j = 0; j < n; j++)
+    for (let i = 0; i < n; i++) {
+      if (!qr.data[j][i] || isFinder(i, j)) continue;
+      roundRect(ctx, ox + i * m + m * 0.06, oy + j * m + m * 0.06, m * 0.88, m * 0.88, m * 0.3);
+      ctx.fill();
+    }
+  for (const [fx, fy] of [
+    [0, 0],
+    [n - 7, 0],
+    [0, n - 7],
+  ]) {
+    const X = ox + fx * m,
+      Y = oy + fy * m;
+    ctx.lineWidth = m;
+    ctx.strokeStyle = INK;
+    roundRect(ctx, X + m / 2, Y + m / 2, m * 6, m * 6, m * 1.6);
+    ctx.stroke();
+    roundRect(ctx, X + m * 2, Y + m * 2, m * 3, m * 3, m * 0.8);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 function stamp(ctx: CanvasRenderingContext2D, x: number, y: number, date: string) {
@@ -171,7 +233,13 @@ async function polaroid(ctx: CanvasRenderingContext2D, c: Creature, cx: number, 
 
 export interface CertOpts {
   photo?: boolean;
+  /** 出生证上崽的样子，默认烫好 */
+  look?: 'bead' | 'full';
+  /** 有链接就印二维码（发微信），没有就把豆码印大（发小红书） */
+  qr?: string;
+  owner?: string;
 }
+
 
 export async function drawCert(canvas: HTMLCanvasElement, c: Creature, ras: Raster, opts: CertOpts = {}) {
   const W = 1080,
@@ -182,6 +250,9 @@ export async function drawCert(canvas: HTMLCanvasElement, c: Creature, ras: Rast
   const main = BEADS[c.genes.colors.main].hex;
   const withPhoto = !!(opts.photo && c.photo?.thumb);
   const right = withPhoto ? 770 : W - 110;
+  const look = c.madeAt ? 'full' : (opts.look ?? 'full');
+  // 票根的位置：带二维码时往上让一点，给二维码留足尺寸
+  const STUB = opts.qr ? 1196 : 1238;
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = INK;
@@ -193,6 +264,29 @@ export async function drawCert(canvas: HTMLCanvasElement, c: Creature, ras: Rast
   roundRect(ctx, 50, 50, W - 100, H - 100, 30);
   ctx.stroke();
   corners(ctx, c, W, H);
+  // 票根：虚线撕口和两边的半圆缺口
+  ctx.save();
+  ctx.strokeStyle = 'rgba(43,35,32,0.28)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([10, 9]);
+  ctx.beginPath();
+  ctx.moveTo(70, STUB);
+  ctx.lineTo(W - 70, STUB);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  for (const nx of [36, W - 36]) {
+    ctx.fillStyle = PAPER;
+    ctx.beginPath();
+    ctx.arc(nx, STUB, 19, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    if (nx < W / 2) ctx.arc(nx, STUB, 18, -Math.PI / 2, Math.PI / 2);
+    else ctx.arc(nx, STUB, 18, Math.PI / 2, (Math.PI * 3) / 2);
+    ctx.stroke();
+  }
+  ctx.restore();
 
   ctx.textAlign = 'center';
   ctx.fillStyle = INK;
@@ -201,32 +295,31 @@ export async function drawCert(canvas: HTMLCanvasElement, c: Creature, ras: Rast
   ctx.font = `600 18px ${FONT}`;
   ctx.fillStyle = MUTED;
   spaced(ctx, 'BIRTH CERTIFICATE · 孵豆', W / 2, 188, 5);
-  ctx.font = `500 20px ${MONO}`;
-  ctx.fillText(`No. ${encode(c.genes)}`, W / 2, 222);
 
-  // 豆板：还没拼是豆板上的样子，出生以后是烫好的样子，再盖一个章
-  const bs = 500,
+  // 崽：默认烫好的样子；还没拼就盖“待出生”，拼好了盖“已出生”
+  const bs = 450,
     bx = (W - bs) / 2,
-    by = 248;
+    by = 246;
   ctx.fillStyle = tint(main, 0.86);
   roundRect(ctx, bx, by, bs, bs, 44);
   ctx.fill();
   const px = Math.floor((bs * 0.84) / ras.n);
   const gw = px * ras.n;
   drawBoard(ctx, ras.n, { px, x0: bx + (bs - gw) / 2, y0: by + (bs - gw) / 2, boardColor: 'rgba(255,255,255,0.35)', pegColor: 'rgba(90,70,50,0.12)' });
-  drawRaster(ctx, ras, { px, x0: bx + (bs - gw) / 2, y0: by + (bs - gw) / 2, style: c.madeAt ? 'full' : 'bead' });
-  if (c.madeAt) stamp(ctx, bx + bs - 36, by + bs - 46, fmtDate(c.madeAt));
+  drawRaster(ctx, ras, { px, x0: bx + (bs - gw) / 2, y0: by + (bs - gw) / 2, style: look });
+  if (c.madeAt) stamp(ctx, bx + bs - 30, by + bs - 40, fmtDate(c.madeAt));
+  else if (look === 'full') pendingStamp(ctx, bx + bs - 20, by + bs - 30);
 
   // 名字
   ctx.fillStyle = INK;
-  ctx.font = `800 60px ${FONT}`;
-  ctx.fillText(c.name, W / 2, by + bs + 84);
+  ctx.font = `800 58px ${FONT}`;
+  ctx.fillText(c.name, W / 2, by + bs + 80);
   // 标签
   const tg = tags(c.genes);
   ctx.font = `600 22px ${FONT}`;
   const tw = tg.map((t) => ctx.measureText(t).width + 36);
   let tx = W / 2 - (tw.reduce((a, b) => a + b, 0) + 12 * (tg.length - 1)) / 2;
-  const ty = by + bs + 112;
+  const ty = by + bs + 104;
   tg.forEach((t, i) => {
     ctx.fillStyle = tint(main, 0.8);
     roundRect(ctx, tx, ty, tw[i], 40, 20);
@@ -239,7 +332,7 @@ export async function drawCert(canvas: HTMLCanvasElement, c: Creature, ras: Rast
   // 信息行
   const x1 = 130,
     x2 = 270;
-  let y = ty + 100;
+  let y = ty + 92;
   const label = (text: string) => {
     ctx.textAlign = 'left';
     ctx.fillStyle = MUTED;
@@ -260,22 +353,22 @@ export async function drawCert(canvas: HTMLCanvasElement, c: Creature, ras: Rast
   if (parents.length === 2 && parents.every((p) => p.genes)) {
     // 爸妈的 Q 版：两只烫好的小崽，中间一个 ×
     label('爸妈');
-    const S = 70;
+    const S = 64;
     parents.forEach((p, i) => {
       const r = rasterize({ ...p.genes!, size: 0 }, STANDARD);
       const ppx = S / r.n;
       const sx = x2 + i * 150;
-      drawRaster(ctx, r, { px: ppx, x0: sx, y0: y - 50, style: 'full' });
+      drawRaster(ctx, r, { px: ppx, x0: sx, y0: y - 46, style: 'full' });
       ctx.textAlign = 'center';
       ctx.fillStyle = MUTED;
       ctx.font = `500 17px ${FONT}`;
-      ctx.fillText(fit(ctx, p.name, 140), sx + S / 2, y + 44);
+      ctx.fillText(fit(ctx, p.name, 140), sx + S / 2, y + 40);
     });
     ctx.textAlign = 'center';
     ctx.fillStyle = '#C9BFB5';
     ctx.font = `600 30px ${FONT}`;
-    ctx.fillText('×', x2 + 110, y - 6);
-    y += 118;
+    ctx.fillText('×', x2 + 107, y - 6);
+    y += 104;
   } else if (parents.length) row('爸妈', parents.map((p) => p.name).join(' × '));
   else if (c.photo) row('来自', c.photo.title);
 
@@ -314,28 +407,56 @@ export async function drawCert(canvas: HTMLCanvasElement, c: Creature, ras: Rast
   }
   y += 74;
 
-  // 那天的一句话：没写就不印
-  if (c.note) {
+  // 那天的一句话：没写就不印；票根上面放得下几行就印几行
+  const room = STUB - 22 - y;
+  if (c.note && room > 0) {
     label('那天');
     ctx.font = `500 26px ${FONT}`;
     ctx.fillStyle = INK;
-    const lines = wrap(ctx, `“${c.note}”`, right - x2).slice(0, 2);
+    const lines = wrap(ctx, `“${c.note}”`, right - x2).slice(0, room >= 38 ? 2 : 1);
+    if (lines.length === 1 && wrap(ctx, `“${c.note}”`, right - x2).length > 1) lines[0] = fit(ctx, lines[0] + '…', right - x2);
     lines.forEach((ln, i) => ctx.fillText(ln, x2, y + i * 38));
   }
 
-  // 底部
-  ctx.fillStyle = '#B3A89E';
-  ctx.font = `500 20px ${FONT}`;
+  // 票根
+  const stats = `${ras.n}×${ras.n} · ${ras.total} 颗 · ${ras.colors.length} 色`;
+  const code = encode(c.genes);
   ctx.textAlign = 'left';
-  ctx.fillText(`${ras.n}×${ras.n} · ${ras.total} 颗 · ${ras.colors.length} 色${withPhoto ? ' · 孵豆' : ''}`, 110, H - 92);
-  if (!withPhoto) {
+  if (opts.qr) {
+    const qs = 176,
+      qx = 92,
+      qy = STUB + 12;
+    drawQR(ctx, opts.qr, qx, qy, qs);
+    const tx1 = qx + qs + 28;
+    ctx.fillStyle = INK;
+    ctx.font = `800 30px ${FONT}`;
+    ctx.fillText(fit(ctx, `扫一扫，和「${c.name}」配一窝`, W - 110 - tx1), tx1, qy + 52);
+    ctx.fillStyle = MUTED;
+    ctx.font = `500 21px ${FONT}`;
+    ctx.fillText(opts.owner ? `${opts.owner}的崽 · 长按识别二维码` : '长按识别二维码，打开孵豆', tx1, qy + 90);
+    ctx.font = `600 19px ${MONO}`;
+    ctx.fillText(code, tx1, qy + 128);
+    ctx.fillStyle = '#B3A89E';
+    ctx.font = `500 18px ${FONT}`;
+    ctx.fillText(`${stats} · 孵豆 · 屏幕里孵，手里出生`, tx1, qy + 162);
+  } else {
+    const sy = STUB + 54;
+    ctx.fillStyle = MUTED;
+    ctx.font = `600 20px ${FONT}`;
+    ctx.fillText('豆码 · 复制到「孵豆」里，就能和我的崽配一窝', 110, sy);
     ctx.textAlign = 'right';
-    ctx.fillText('孵豆 · 屏幕里孵，手里出生', W - 110, H - 92);
+    ctx.fillStyle = '#B3A89E';
+    ctx.font = `500 18px ${FONT}`;
+    ctx.fillText(`${stats} · 孵豆`, W - 110, sy);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = INK;
+    ctx.font = `800 46px ${MONO}`;
+    spaced(ctx, code, 110, sy + 66, 3, 'left');
   }
 
   if (withPhoto) {
     try {
-      await polaroid(ctx, c, 912, 1180);
+      await polaroid(ctx, c, 906, opts.qr ? 1048 : 1078);
     } catch {
       /* 照片读不出来就不贴 */
     }

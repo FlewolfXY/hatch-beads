@@ -26,7 +26,8 @@ export type Screen =
   | { k: 'detail'; id: string }
   | { k: 'sheet'; id: string }
   | { k: 'cert'; id: string }
-  | { k: 'breed'; aId?: string; code?: string }
+  | { k: 'breed'; aId?: string; code?: string; name?: string; owner?: string }
+  | { k: 'invite'; code: string; name?: string; owner?: string }
   | { k: 'gallery' };
 
 export interface AppCtx {

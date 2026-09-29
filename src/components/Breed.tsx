@@ -14,22 +14,28 @@ import { Sparkle } from './icons';
 
 const DEMO: Creature = { id: 'demo-metro', genes: SHOWCASE[0], name: '末班车', createdAt: Date.now() };
 
-export default function Breed({ aId, code: code0 }: { aId?: string; code?: string }) {
+export default function Breed({ aId, code: code0, name: name0, owner: owner0 }: { aId?: string; code?: string; name?: string; owner?: string }) {
   const app = useApp();
+  const invited = code0 ? decode(code0) : null;
   const options = useMemo(() => {
     const list: Creature[] = [];
     const a = aId ? app.get(aId) : undefined;
     if (a) list.push(a);
-    for (const c of app.nest) if (!list.some((x) => x.id === c.id)) list.push(c);
+    const same = (c: Creature) => invited && encode(c.genes) === encode(invited);
+    // 自己孵的排前面，朋友送的排后面，不和对方那只自己配
+    for (const c of [...app.nest.filter((x) => !x.from), ...app.nest.filter((x) => x.from)]) if (!list.some((x) => x.id === c.id) && !same(c)) list.push(c);
     if (!list.length) list.push(DEMO);
     return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aId, app]);
   const [aSel, setASel] = useState(options[0].id);
   const [code, setCode] = useState(code0 ?? '');
   const a = options.find((x) => x.id === aSel) ?? options[0];
   const friendCodes = useMemo(() => FRIENDS.map((f) => ({ ...f, code: encode(f.genes) })), []);
   const b: Genes | null = useMemo(() => decode(code), [code]);
-  const friend = friendCodes.find((f) => b && encode(b) === f.code);
+  const fromLink = !!(b && invited && encode(b) === encode(invited));
+  const friendFound = friendCodes.find((f) => b && encode(b) === f.code);
+  const friend = fromLink && name0 ? { name: name0, owner: owner0 } : friendFound;
   const bName = friend ? friend.name : b ? nameFor(b, 3) : '';
   const rasA = useMemo(() => rasterize(a.genes, app.pool), [a.genes, app.pool]);
   const rasB = useMemo(() => (b ? rasterize({ ...b, size: a.genes.size }, app.pool) : null), [b, a.genes.size, app.pool]);
@@ -97,7 +103,7 @@ export default function Breed({ aId, code: code0 }: { aId?: string; code?: strin
             <>
               <BeadView ras={rasB} size={112} animate />
               <div className="nm">{bName}</div>
-              <div className="ow">{friend ? `${friend.owner}的崽（示例）` : 'TA 的崽'}</div>
+              <div className="ow">{fromLink ? (friend?.owner ? `${friend.owner}的崽` : '朋友的崽') : friendFound ? `${friendFound.owner}的崽（示例）` : 'TA 的崽'}</div>
             </>
           ) : (
             <div className="sub" style={{ padding: 10 }}>
