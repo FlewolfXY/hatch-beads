@@ -21,6 +21,8 @@ export interface Creature {
   note?: string;
   madeAt?: number;
   madePhoto?: string;
+  /** 出生证上要不要贴原照片，默认贴 */
+  certPhoto?: boolean;
 }
 
 const NEST = 'hatch-beads:nest:v1';

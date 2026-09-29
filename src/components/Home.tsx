@@ -76,7 +76,7 @@ export default function Home() {
     if (!f) return;
     const src = await fileToDataURL(f);
     const d = new Date();
-    app.go({ k: 'extract', src, title: `${d.getMonth() + 1}月${d.getDate()}日看见的` });
+    app.go({ k: 'extract', src, title: `${d.getMonth() + 1}月${d.getDate()}日的照片` });
   };
 
   const labels = ['2号线末班车', '放学的晚霞', '雨天的窗'];

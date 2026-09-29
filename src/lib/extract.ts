@@ -2,6 +2,7 @@ import { chroma, deltaE, Lab, rgbToLab } from './color';
 import { Dir, PhotoColor, PhotoInfo } from './genes';
 import { BEADS, dE, lighter, darker, nearest, Pool } from './palette';
 import { hashNums, mulberry32 } from './rng';
+import { colorName } from './names';
 
 export interface LabeledPoint {
   x: number;
@@ -69,8 +70,8 @@ export function makeSampler(img: HTMLImageElement) {
   };
 }
 
-export function labelAt(nx: number, ny: number, points?: LabeledPoint[]) {
-  let label = posName(nx, ny);
+export function labelAt(nx: number, ny: number, points?: LabeledPoint[], bead?: number) {
+  let label = bead === undefined ? posName(nx, ny) : colorName(bead);
   let bd = Infinity;
   for (const p of points ?? []) {
     const d = Math.hypot(p.x - nx, p.y - ny);
@@ -242,17 +243,7 @@ export async function analyze(img: HTMLImageElement, pool: Pool, points?: Labele
       }
     const nx = ((best % w) + 0.5) / w,
       ny = (Math.floor(best / w) + 0.5) / h;
-    let label = posName(nx, ny);
-    if (points?.length) {
-      let bd = Infinity;
-      for (const p of points) {
-        const d = Math.hypot(p.x - nx, p.y - ny);
-        if (d < bd && d < 0.3) {
-          bd = d;
-          label = p.label;
-        }
-      }
-    }
+    const label = labelAt(nx, ny, points, cl.bead);
     return { bead: cl.bead, weight: cl.weight, pos: [nx, ny] as [number, number], label, crop: crop(img, nx, ny) };
   });
   // 太单色的照片：补一颗深一点、一颗浅一点

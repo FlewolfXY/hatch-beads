@@ -194,7 +194,7 @@ export default function Extract({ src, title, note: note0, points }: Props) {
       ny = Math.min(1, Math.max(0, d.ny));
     setColors((cs) =>
       cs.map((c, j) =>
-        j === d.i ? { bead: d.bead, weight: Math.max(c.weight, MANUAL_WEIGHT), pos: [nx, ny], label: labelAt(nx, ny, points), crop: crop(img, nx, ny), manual: true } : c,
+        j === d.i ? { bead: d.bead, weight: Math.max(c.weight, MANUAL_WEIGHT), pos: [nx, ny], label: labelAt(nx, ny, points, d.bead), crop: crop(img, nx, ny), manual: true } : c,
       ),
     );
     setOff((s) => {
@@ -228,7 +228,7 @@ export default function Extract({ src, title, note: note0, points }: Props) {
     const nx = Math.min(1, Math.max(0, p.nx)),
       ny = Math.min(1, Math.max(0, p.ny));
     const idx = colors.length;
-    setColors((cs) => [...cs, { bead, weight: MANUAL_WEIGHT, pos: [nx, ny], label: labelAt(nx, ny, points), crop: crop(img, nx, ny), manual: true }]);
+    setColors((cs) => [...cs, { bead, weight: MANUAL_WEIGHT, pos: [nx, ny], label: labelAt(nx, ny, points, bead), crop: crop(img, nx, ny), manual: true }]);
     setLanded((s) => new Set(s).add(idx));
     setEdited(true);
     tick(1.2);

@@ -16,6 +16,7 @@ import {
   tags,
 } from '../lib/genes';
 import { nameFor } from '../lib/names';
+import { encode } from '../lib/code';
 import { BEADS, derive, STANDARD } from '../lib/palette';
 import { beadSprite, drawEgg, drawRaster, EggRaster, EggShape, EggStyle, makeEgg, Melt, MELT_MS, reduceMotion, setupCanvas } from '../lib/render';
 import { hashNums, mulberry32, uid } from '../lib/rng';
@@ -101,8 +102,8 @@ export default function Hatch({ photo, size, round, base, pins, breed: br }: Pro
           createdAt: Date.now(),
           flavor: '配种',
           parents: [
-            { name: br.a.name, code: '' },
-            { name: br.bOwner ? `${br.bOwner}的${br.bName}` : br.bName, code: '' },
+            { name: br.a.name, code: encode(br.a.genes) },
+            { name: br.bOwner ? `${br.bOwner}的${br.bName}` : br.bName, code: encode(br.b) },
           ],
           notes: k.notes,
           newBead: k.newBead,

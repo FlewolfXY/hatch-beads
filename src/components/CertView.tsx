@@ -15,31 +15,37 @@ export default function CertView({ id }: { id: string }) {
   const triRef = useRef<HTMLCanvasElement>(null);
   const [tab, setTab] = useState<'cert' | 'tri'>('cert');
   const [note, setNote] = useState(c.note ?? '');
+  const [title, setTitle] = useState(c.photo?.title ?? '');
+  const showPhoto = c.certPhoto ?? true;
+  const draft = useMemo(
+    () => ({ ...c, note: note.trim() || undefined, photo: c.photo ? { ...c.photo, title: title.trim() || c.photo.title } : undefined }),
+    [c, note, title],
+  );
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (tab === 'cert' && certRef.current) void drawCert(certRef.current, { ...c, note: note.trim() || undefined }, ras);
-      if (tab === 'tri' && triRef.current) void drawTriptych(triRef.current, c, ras);
+      if (tab === 'cert' && certRef.current) void drawCert(certRef.current, draft, ras, { photo: showPhoto });
+      if (tab === 'tri' && triRef.current) void drawTriptych(triRef.current, draft, ras);
     }, 60);
     return () => clearTimeout(t);
-  }, [c, ras, note, tab]);
+  }, [draft, ras, tab, showPhoto]);
 
-  const saveNote = () => {
-    if ((c.note ?? '') !== note.trim()) app.put({ ...c, note: note.trim() || undefined });
+  const saveText = () => {
+    if ((c.note ?? '') !== note.trim() || (c.photo && c.photo.title !== (title.trim() || c.photo.title))) app.put(draft);
   };
 
   const onMade = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const img = await loadImage(await fileToDataURL(f));
-    app.put({ ...c, note: note.trim() || undefined, madeAt: Date.now(), madePhoto: thumb(img, 720, 0.82) }, true);
+    app.put({ ...draft, madeAt: Date.now(), madePhoto: thumb(img, 720, 0.82) }, true);
     chime();
     app.toast(`${c.name}出生了`);
     setTab('tri');
   };
 
   const markMade = () => {
-    app.put({ ...c, note: note.trim() || undefined, madeAt: Date.now() }, true);
+    app.put({ ...draft, madeAt: Date.now() }, true);
     chime();
     app.toast(`${c.name}出生了`);
   };
@@ -67,11 +73,31 @@ export default function CertView({ id }: { id: string }) {
         <>
           <div className="section-head" style={{ marginTop: 20 }}>
             <h2 className="h2" style={{ fontSize: 16 }}>
-              那天的一句话
+              出生证上写什么
             </h2>
-            <span className="sub">可以不写</span>
+            <span className="sub">都可以不写</span>
           </div>
-          <textarea className="note" rows={2} maxLength={40} placeholder="比如：下课了，雨还没停。" value={note} onChange={(e) => setNote(e.target.value)} onBlur={saveNote} />
+          <div className="card cert-form">
+            {c.photo && (
+              <label className="field">
+                <span className="k">来自</span>
+                <input value={title} maxLength={16} placeholder="比如：下课路上" onChange={(e) => setTitle(e.target.value)} onBlur={saveText} />
+              </label>
+            )}
+            <label className="field">
+              <span className="k">那天</span>
+              <textarea rows={2} maxLength={40} placeholder="比如：下课了，雨还没停。" value={note} onChange={(e) => setNote(e.target.value)} onBlur={saveText} />
+            </label>
+            {c.photo?.thumb && (
+              <button className="toggle" onClick={() => app.put({ ...draft, certPhoto: !showPhoto })}>
+                <span className="t">
+                  贴上原照片
+                  <small>做成右下角的拍立得。照片里有人脸或位置的话，分享前可以关掉</small>
+                </span>
+                <span className={`switch ${showPhoto ? 'on' : ''}`} />
+              </button>
+            )}
+          </div>
         </>
       )}
       {tab === 'tri' && (

@@ -6,6 +6,7 @@ import { Colors, DIR_LABEL, GENE_KEYS, GENE_LABEL, GeneKey, geneText, palettesOf
 import { BEADS } from '../lib/palette';
 import { hexToRgb, rgbToHex, RGB } from '../lib/color';
 import { Creature } from '../lib/store';
+import { sourceLabel } from '../lib/names';
 import BeadView, { ViewMode } from './BeadView';
 import { TopBar } from './Home';
 import { Card, Copy, Grid, Heart, Link, Pin, Shuffle } from './icons';
@@ -69,7 +70,7 @@ export default function Detail({ id }: { id: string }) {
       const pc = c.photo.colors.find((p) => p.bead === b && !p.derived);
       if (!pc || seen.has(b)) continue;
       seen.add(b);
-      why.push({ img: pc.crop, bead: b, text: `${ROLE_LABEL[role]} ${BEADS[b].code}`, from: `来自照片里的${pc.label ?? '颜色'}` });
+      why.push({ img: pc.crop, bead: b, text: `${ROLE_LABEL[role]} ${BEADS[b].code}`, from: pc.manual ? `你在照片里亲手选的${sourceLabel(pc)}` : `来自照片里的${sourceLabel(pc)}` });
     }
     const inf = c.photo.info;
     if (g.pattern === 'stripes' && inf.edgeStrength > 0.18 && g.dir === inf.edgeDir) why.push({ text: DIR_LABEL[g.dir], from: '照片里这个方向的线条很多' });
