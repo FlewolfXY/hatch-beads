@@ -1,7 +1,7 @@
 import { isLocalHost } from './share';
 
-/** GoatCounter 站点代号，比如 hatchbeads（对应 hatchbeads.goatcounter.com）。留空就不统计。 */
-const GC_CODE = '';
+/** GoatCounter 站点代号，对应 flewolf.goatcounter.com。留空就不统计。 */
+const GC_CODE = 'flewolf';
 
 type GC = { count: (o: { path: string; title?: string; event?: boolean }) => void };
 declare global {
