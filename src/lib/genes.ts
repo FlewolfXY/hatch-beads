@@ -161,6 +161,8 @@ export interface PhotoColor {
   label?: string;
   crop?: string;
   derived?: boolean;
+  /** 用户自己在照片上点的 */
+  manual?: boolean;
 }
 
 export interface PhotoInfo {

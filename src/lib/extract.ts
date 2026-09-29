@@ -36,7 +36,53 @@ export function thumb(img: HTMLImageElement, max = 520, quality = 0.8): string {
   return c.toDataURL('image/jpeg', quality);
 }
 
-function crop(img: HTMLImageElement, nx: number, ny: number, size = 120): string {
+/** 在照片任意位置取色：取一小块区域的平均色，避免点到噪点 */
+export function makeSampler(img: HTMLImageElement) {
+  const max = 360;
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(8, Math.round(img.naturalWidth * s));
+  const h = Math.max(8, Math.round(img.naturalHeight * s));
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h).data;
+  return (nx: number, ny: number): Lab => {
+    const cx = Math.round(Math.min(1, Math.max(0, nx)) * (w - 1));
+    const cy = Math.round(Math.min(1, Math.max(0, ny)) * (h - 1));
+    let r = 0,
+      g = 0,
+      b = 0,
+      k = 0;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const x = Math.min(w - 1, Math.max(0, cx + dx));
+        const y = Math.min(h - 1, Math.max(0, cy + dy));
+        const i = (y * w + x) * 4;
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        k++;
+      }
+    return rgbToLab([r / k, g / k, b / k]);
+  };
+}
+
+export function labelAt(nx: number, ny: number, points?: LabeledPoint[]) {
+  let label = posName(nx, ny);
+  let bd = Infinity;
+  for (const p of points ?? []) {
+    const d = Math.hypot(p.x - nx, p.y - ny);
+    if (d < bd && d < 0.3) {
+      bd = d;
+      label = p.label;
+    }
+  }
+  return label;
+}
+
+export function crop(img: HTMLImageElement, nx: number, ny: number, size = 120): string {
   const W = img.naturalWidth,
     H = img.naturalHeight;
   const side = Math.min(W, H) * 0.2;
