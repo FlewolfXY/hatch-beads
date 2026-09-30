@@ -318,16 +318,19 @@ function HatchCard({
         ctx.fill();
         const idle = Math.pow(Math.max(0, Math.sin(t / 650 + index * 1.7)), 12) * Math.sin(t / 70) * 0.06;
         const angle = charge > 0 ? Math.sin(t / 38) * (0.03 + 0.13 * charge) : idle;
-        drawEgg(ctx, egg, { px, x0: pad, y0: pad, angle, cracked: Math.floor(charge * egg.crack.length) });
-        if (charge > 0) {
-          ctx.strokeStyle = 'rgba(43,35,32,0.8)';
-          ctx.lineWidth = 3;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.arc(S / 2, S / 2, S / 2 - 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, charge));
-          ctx.stroke();
-          if (Math.random() < charge * 0.3) tick(0.6 + charge * 0.6);
+        const warm = Math.min(1, charge);
+        if (warm > 0) {
+          // 孵蛋灯：按得越久，蛋背后越暖
+          const cy = pad + n * px * 0.56;
+          const halo = ctx.createRadialGradient(S / 2, cy, 0, S / 2, cy, S / 2);
+          halo.addColorStop(0, `rgba(255,200,95,${0.65 * warm})`);
+          halo.addColorStop(0.72, `rgba(255,206,110,${0.5 * warm})`);
+          halo.addColorStop(1, 'rgba(255,220,150,0)');
+          ctx.fillStyle = halo;
+          ctx.fillRect(0, 0, S, S);
         }
+        drawEgg(ctx, egg, { px, x0: pad, y0: pad, angle, cracked: Math.floor(charge * egg.crack.length), warm });
+        if (warm > 0 && Math.random() < charge * 0.3) tick(0.6 + charge * 0.6);
         if (charge >= 1) {
           phase = 'burst';
           burstAt = t;

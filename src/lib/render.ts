@@ -562,7 +562,32 @@ export function makeEgg(n: number, o: EggOpts): EggRaster {
   return { n, bead, crack };
 }
 
-export function drawEgg(ctx: CanvasRenderingContext2D, egg: EggRaster, o: DrawOpts & { cracked?: number; angle?: number }) {
+const warmSprites = new Map<string, HTMLCanvasElement>();
+const WARM_STEP = 0.04;
+
+/** 被孵蛋灯照暖的豆子：原贴图上罩一层暖光，按档位缓存 */
+function warmSprite(hex: string, px: number, level: number): HTMLCanvasElement {
+  const base = beadSprite(hex, px);
+  if (level <= 0) return base;
+  const key = `${hex}|${base.width}|${level}`;
+  const hit = warmSprites.get(key);
+  if (hit) return hit;
+  const c = document.createElement('canvas');
+  c.width = c.height = base.width;
+  const g = c.getContext('2d')!;
+  g.drawImage(base, 0, 0);
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = `rgba(255,241,210,${level * WARM_STEP})`;
+  g.fillRect(0, 0, c.width, c.height);
+  warmSprites.set(key, c);
+  return c;
+}
+
+export function drawEgg(
+  ctx: CanvasRenderingContext2D,
+  egg: EggRaster,
+  o: DrawOpts & { cracked?: number; angle?: number; /** 0–1，按住蓄力时暖光从蛋底往上灌到哪 */ warm?: number },
+) {
   const { px, x0 = 0, y0 = 0 } = o;
   const n = egg.n;
   ctx.save();
@@ -572,11 +597,34 @@ export function drawEgg(ctx: CanvasRenderingContext2D, egg: EggRaster, o: DrawOp
   ctx.rotate(o.angle ?? 0);
   ctx.translate(-pivotX, -pivotY);
   const crackSet = new Set(egg.crack.slice(0, o.cracked ?? 0));
+  const warm = o.warm ?? 0;
+  let top = n,
+    bottom = -1;
+  if (warm > 0)
+    for (let i = 0; i < n * n; i++)
+      if (egg.bead[i] >= 0) {
+        const r = (i / n) | 0;
+        top = Math.min(top, r);
+        bottom = Math.max(bottom, r);
+      }
+  const front = bottom + 1 - warm * (bottom + 1 - top);
   for (let i = 0; i < n * n; i++) {
     const b = egg.bead[i];
     if (b < 0) continue;
-    const x = x0 + (i % n) * px,
-      y = y0 + ((i / n) | 0) * px;
+    const row = (i / n) | 0;
+    const x = x0 + (i % n) * px;
+    let y = y0 + row * px;
+    let level = 0;
+    if (warm > 0) {
+      const d = row + 0.5 - front;
+      let glow = d > 0 ? 0.06 + 0.04 * warm : 0;
+      const near = 1 - Math.abs(d) / 1.5;
+      if (near > 0) {
+        glow = Math.max(glow, 0.34 * near);
+        y -= px * 0.3 * Math.sin(near * Math.PI * 0.5);
+      }
+      level = Math.round(glow / WARM_STEP);
+    }
     if (crackSet.has(i)) {
       const g = ctx.createRadialGradient(x + px / 2, y + px / 2, 0, x + px / 2, y + px / 2, px * 1.2);
       g.addColorStop(0, 'rgba(255,248,220,1)');
@@ -585,7 +633,7 @@ export function drawEgg(ctx: CanvasRenderingContext2D, egg: EggRaster, o: DrawOp
       ctx.fillRect(x - px * 0.7, y - px * 0.7, px * 2.4, px * 2.4);
       continue;
     }
-    ctx.drawImage(beadSprite(BEADS[b].hex, px), x, y, px, px);
+    ctx.drawImage(warmSprite(BEADS[b].hex, px, level), x, y, px, px);
   }
   ctx.restore();
 }
