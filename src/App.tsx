@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppCtx, Ctx, Screen } from './ctx';
 import { BoxSetting, Creature, loadBox, loadNest, poolOf, saveBox, saveNest } from './lib/store';
-import { setSound } from './lib/sound';
+import { loadSoundPref, setSound } from './lib/sound';
 import Home from './components/Home';
 import Extract from './components/Extract';
 import Hatch from './components/Hatch';
@@ -29,7 +29,11 @@ export default function App() {
   const [nest, setNest] = useState<Creature[]>(loadNest);
   const [drafts, setDrafts] = useState<Record<string, Creature>>({});
   const [box, setBoxState] = useState<BoxSetting>(loadBox);
-  const [sound, setSoundState] = useState(false);
+  const [sound, setSoundState] = useState(() => {
+    const on = loadSoundPref();
+    setSound(on, false);
+    return on;
+  });
   const [toastMsg, setToast] = useState<{ m: string; k: number } | null>(null);
   const [boxOpen, setBoxOpen] = useState(false);
   const nestRef = useRef(nest);

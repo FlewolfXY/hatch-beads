@@ -21,7 +21,7 @@ import { encode } from '../lib/code';
 import { BEADS, derive, STANDARD } from '../lib/palette';
 import { beadSprite, drawEgg, drawRaster, EggRaster, EggShape, EggStyle, makeEgg, Melt, MELT_MS, reduceMotion, setupCanvas } from '../lib/render';
 import { hashNums, mulberry32, uid } from '../lib/rng';
-import { chime, crack, tick } from '../lib/sound';
+import { chime, crack, setHatching, tick } from '../lib/sound';
 import { Creature } from '../lib/store';
 import { tintOf } from './Detail';
 import { Steps } from './Extract';
@@ -162,6 +162,10 @@ export default function Hatch({ photo, size, round, base, pins, breed: br }: Pro
   useEffect(() => {
     clutchCache.set(cacheKey, { items, hatched });
   }, [cacheKey, items, hatched]);
+  useEffect(() => {
+    setHatching(!all);
+    return () => setHatching(false);
+  }, [all]);
 
   const hatchAll = () => {
     let k = 0;
